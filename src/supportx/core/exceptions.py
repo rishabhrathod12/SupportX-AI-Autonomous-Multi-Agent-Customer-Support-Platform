@@ -15,3 +15,7 @@ class ConfigurationError(SupportXError):
 
 class ExternalServiceError(SupportXError):
     """A call to an external service (OpenAI, database, ...) failed."""
+
+
+class DataError(SupportXError):
+    """A dataset is unknown, unavailable, or its license was not acknowledged."""

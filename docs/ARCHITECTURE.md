@@ -31,6 +31,7 @@ Customer query
 |---|---|---|
 | `core` | Settings (env vars), logging, custom exceptions, shared types | nothing internal |
 | `db` | SQLAlchemy models, sessions, repositories, Alembic migrations | `core` |
+| `data` | License-gated dataset download (pinned revisions, SHA-256 manifest) and a labeled synthetic sample generator for tests | `core` |
 | `nlp` | Text cleaning, tokenization, NLTK utilities (shared preprocessing) | `core` |
 | `ml` | Classical ML: intent, sentiment, priority, routing, resolution time (sklearn/XGBoost). Train, evaluate, save, load, predict | `core`, `nlp` |
 | `dl` | TensorFlow/Keras: dense NN, LSTM/BiLSTM for intent and sentiment; same train/evaluate/save/load/predict contract as `ml` | `core`, `nlp` |

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 1.2 - core package (complete, awaiting review before Phase 1.3)
+Last updated: 2026-11-13 | Current phase: 2.2 - Data tooling (complete, awaiting review before Phase 2.3)
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -25,9 +25,20 @@ Last updated: 2026-11-13 | Current phase: 1.2 - core package (complete, awaiting
 - [x] Phase 1.2: `core` package (`config.py`, `exceptions.py`, `logging_config.py`) with 11 unit tests
       (11 passed, 96% coverage of `supportx.core`; ruff and mypy --strict clean)
 
+- [x] Phase 1.3: first commit `729a0c5` (36 files) on branch `main`, pushed to GitHub
+      (`origin/main`, upstream tracking set). No secrets, venv, data or models committed.
+
+- [x] Phase 2.1: datasets chosen and documented in `docs/DATASETS.md` (nothing downloaded yet):
+      Bitext (intent, synthetic), Banking77 (optional benchmark), Amazon Reviews 2023 subsample
+      (sentiment, weak star labels). Priority/routing/resolution-time data deferred.
+
+- [x] Phase 2.2: `supportx.data` package - license-gated downloader (`download.py`, pinned revisions,
+      SHA-256 manifest) and synthetic sample generator (`sample.py`); 21 tests pass in total.
+      Datasets are NOT downloaded yet (waiting on the license-reading items below).
+
 ## Pending
-- [ ] Phase 1.3 and onward per `DEVELOPMENT_ROADMAP.md` (needs user approval)
-- [ ] First git commit and push (waiting for user go-ahead)
+- [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
+- [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
 
 ## Known notes
 - Harmless import-time messages: TensorFlow prints an absl log notice and an oneDNN notice
@@ -40,4 +51,5 @@ Last updated: 2026-11-13 | Current phase: 1.2 - core package (complete, awaiting
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 1.3: first git commit (after reviewing what will be committed) and push to GitHub.
+Phase 2.3: you read the license items in `docs/DATASETS.md`, then download Bitext and Banking77;
+then `nlp` text cleaning/tokenization with tests and a first EDA of the downloaded data.
