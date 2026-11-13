@@ -8,6 +8,7 @@ and recorded in a MANIFEST.json with their SHA-256 hashes.
 import argparse
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -136,6 +137,7 @@ def main() -> None:
     parser.add_argument("--accept-license", action="store_true")
     args = parser.parse_args()
     setup_logging("INFO")
+    logging.getLogger("httpx").setLevel(logging.WARNING)  # hides long signed CDN URLs
     try:
         download_dataset(args.name, args.dest, args.accept_license)
     except SupportXError as exc:

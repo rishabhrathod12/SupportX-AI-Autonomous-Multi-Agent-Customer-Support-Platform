@@ -1,0 +1,60 @@
+import pandas as pd
+import pytest
+
+from supportx.nlp import clean_series, clean_text, tokenize
+
+
+def test_lowercase_and_whitespace() -> None:
+    assert clean_text("  WHERE is\tmy\n ORDER?  ") == "where is my order?"
+
+
+def test_lowercase_can_be_disabled() -> None:
+    assert clean_text("Hello World", lowercase=False) == "Hello World"
+
+
+def test_urls_become_placeholder() -> None:
+    assert clean_text("see https://shop.com/o?id=1 or www.shop.com now") == "see <url> or <url> now"
+
+
+def test_emails_become_placeholder() -> None:
+    assert clean_text("mail me at Jane.Doe+x@mail.example.com please") == (
+        "mail me at <email> please"
+    )
+
+
+def test_unicode_is_normalized() -> None:
+    assert clean_text("ＯＲＤＥＲ") == "order"  # full-width letters
+    assert clean_text("I don’t know") == "i don't know"  # curly apostrophe
+
+
+def test_clean_text_is_idempotent() -> None:
+    once = clean_text("Visit HTTP://X.com  ASAP!")
+    assert once == "visit <url> asap!"
+    assert clean_text(once) == once
+
+
+def test_clean_text_rejects_non_strings() -> None:
+    with pytest.raises(TypeError):
+        clean_text(123)  # type: ignore[arg-type]
+
+
+def test_tokenize_basic_and_contractions() -> None:
+    assert tokenize("Where's my order ORD-12345? I can't wait!") == [
+        "where's", "my", "order", "ord", "12345", "i", "can't", "wait",
+    ]  # fmt: skip
+
+
+def test_tokenize_keeps_placeholders() -> None:
+    assert tokenize("Refund to a@b.com, see www.x.com") == [
+        "refund", "to", "<email>", "see", "<url>",
+    ]  # fmt: skip
+
+
+def test_tokenize_empty() -> None:
+    assert tokenize("") == []
+    assert tokenize("?!...") == []
+
+
+def test_clean_series_handles_missing_values() -> None:
+    out = clean_series(pd.Series(["Hi  There", None, float("nan")]))
+    assert out.tolist() == ["hi there", "", ""]

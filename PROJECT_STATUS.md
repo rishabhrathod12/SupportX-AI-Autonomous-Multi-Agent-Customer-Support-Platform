@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 2.2 - Data tooling (complete, awaiting review before Phase 2.3)
+Last updated: 2026-11-13 | Current phase: 2.3 - complete (NLP preprocessing, datasets downloaded, first EDA); awaiting review before 2.4
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -36,7 +36,17 @@ Last updated: 2026-11-13 | Current phase: 2.2 - Data tooling (complete, awaiting
       SHA-256 manifest) and synthetic sample generator (`sample.py`); 21 tests pass in total.
       Datasets are NOT downloaded yet (waiting on the license-reading items below).
 
+- [x] Phase 2.3a: `supportx.nlp.preprocessing` (`clean_text`, `tokenize`, `clean_series`), 11 tests,
+      100% coverage; found and fixed a case-sensitivity bug in URL/email matching via the idempotency test.
+      Not committed yet.
+
+- [x] Phase 2.3b: user confirmed the licenses were read; Bitext and Banking77 downloaded to `data/raw/`
+      (git-ignored; hashes in MANIFEST.json files).
+- [x] Phase 2.3c: first look at the data, findings in `docs/DATASETS.md` (duplicates, placeholders,
+      class balance, 7 Banking77 train/test overlaps).
+
 ## Pending
+- [ ] Uncommitted: nlp preprocessing, tests, docs, status, download.py logging tweak (commit/push needs approval)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
 - [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
 
@@ -51,5 +61,6 @@ Last updated: 2026-11-13 | Current phase: 2.2 - Data tooling (complete, awaiting
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 2.3: you read the license items in `docs/DATASETS.md`, then download Bitext and Banking77;
-then `nlp` text cleaning/tokenization with tests and a first EDA of the downloaded data.
+Phase 2.4: data preparation - placeholder handling in `clean_text`, dedupe + stratified
+train/validation/test split for Bitext, Banking77 cleanup (label names, overlap), saved to
+`data/processed/` with tests.

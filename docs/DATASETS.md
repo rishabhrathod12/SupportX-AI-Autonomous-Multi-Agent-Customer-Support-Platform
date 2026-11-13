@@ -32,8 +32,34 @@ status, and its license. Nothing here has been downloaded yet.
 ### Deferred: priority, routing, resolution time
 No candidate has a verified license or confirmed real labels. Candidates to inspect later: Kaggle support-ticket datasets (suraj520, suvroo) and Mendeley "Help Desk Tickets". If a chosen one turns out to be synthetic, models trained on it are demo-only.
 
+## First look at the downloaded data (2026-11-13)
+
+Downloaded to `data/raw/` (git-ignored); sizes match the Hugging Face file listing and hashes are in each `MANIFEST.json`.
+
+### Bitext (26,872 rows; columns `flags`, `instruction`, `category`, `intent`, `response`)
+- No missing values. 27 intents in 11 categories; each intent belongs to exactly one category.
+- **Almost perfectly balanced**: 950-1000 rows per intent. This looks curated/synthetic, so accuracy on it will be high and says little about real traffic.
+- Very short messages: median 9 tokens, p99 14, max 17.
+- **Duplicates**: 2,237 exact duplicate `instruction` values (2,598 after cleaning). There are **no** label conflicts. => Deduplicate on the cleaned text **before** splitting, or the same sentence lands in both train and test and inflates scores.
+- **Placeholders**: 6,670 rows (about 25%) contain `{{...}}` tokens; 9 distinct (e.g. `{{Order Number}}` 2,907 rows, `{{Account Type}}`, `{{Person Name}}`, `{{Refund Amount}}`). Currently `tokenize` would split them into plain words, which loses that they are placeholders.
+- Noise: typos (e.g. "newslettert") and inline ids like `#00108`. No URLs or emails.
+- `flags` has 394 distinct codes (the card's meaning of the letters is not verified here). Not used as a feature.
+- No sentiment or priority labels in this dataset.
+
+### Banking77 (train 10,003 / test 3,080; columns `text`, `label` as integer id)
+- No missing values. 77 classes in both splits; **imbalanced**: 35-187 per class (median 127).
+- Messages: median 10 tokens, p99 43, max 79.
+- 4 duplicates after cleaning in train; **7 texts appear in both train and test** (about 0.2% of test) - remove from train or report it.
+- Label names are not in the parquet files (only ids); the id-to-name list must be taken from the dataset card.
+
+### Decisions for the next step
+1. Map `{{Placeholder Name}}` to a single token such as `<order_number>` in `clean_text` (keeps their meaning).
+2. Deduplicate on cleaned text before any train/validation/test split; stratify by intent.
+3. Use Banking77's official train/test split, drop the 7 overlapping texts from train, and get the label names from the card.
+4. Keep reporting Bitext results as "synthetic data" and Banking77 as the less-controlled check.
+
 ## Open verification items
-- [ ] Read the CDLA-Sharing-1.0 text and decide what it implies for this project.
+- [x] Licenses read by the user before downloading (CDLA-Sharing-1.0 and CC BY 4.0); the user's notes on implications are not recorded here.
 - [ ] Confirm from Bitext's full card that the full intent list matches (only part of the page was read verbatim).
 - [ ] Banking77 data provenance (not stated on the card).
 - [ ] Amazon Reviews 2023: read the terms on the official site before downloading.
