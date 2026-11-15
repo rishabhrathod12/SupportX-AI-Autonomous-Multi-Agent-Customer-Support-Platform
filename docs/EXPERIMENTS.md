@@ -26,7 +26,20 @@ Weakest validation intents (F1):
 - Banking77: pending_transfer 0.629, unable_to_verify_identity 0.706, why_verify_identity 0.720, card_not_working 0.737, pin_blocked 0.762
 
 How to read this:
-- **Bitext 0.99 is close to a ceiling and says little about real customers.** The data is synthetic and templated. A hypothesis (not yet tested) is that near-duplicate template variants are spread across train and val even after exact-duplicate removal; testing it needs a similarity check.
+- **Bitext 0.99 is close to a ceiling and says little about real customers.** The data is synthetic and templated. The near-duplicate leakage hypothesis was tested in E2 below and mostly rejected.
 - **Banking77 is the more informative number.** Confusions are between semantically close intents (identity verification, transfers), which is realistic.
-- Hyperparameters (C, n-grams) were not tuned; this is a first baseline. Tuning must use validation, never test.
+- Hyperparameters (C, n-grams) were not tuned in E1; this is a first baseline. Tuning must use validation, never test.
 - The Banking77 validation set is small (1,000), so differences of about 1 point are within noise.
+
+### E2 - Near-duplicate leakage check (validation vs train, E1 model)
+Run date: 2026-11-15. Helper: `supportx.data.similarity.nearest_similarity` (TF-IDF cosine similarity of each
+validation text to its closest training text). The test splits were not used.
+
+| Dataset | Val texts with a close twin in train (sim >= 0.90) | Accuracy, sim >= 0.90 | Accuracy, sim < 0.90 | Accuracy, sim < 0.70 |
+|---|---|---|---|---|
+| Bitext (synthetic) | 14.1% (342 of 2,427) | 1.000 | 0.992 (n=2,085) | 0.981 (n=690) |
+| Banking77 | 3.0% (30 of 1,000) | 1.000 | 0.883 (n=970) | 0.861 (n=767) |
+
+Conclusion: near-duplicates are not what drives Bitext's 0.99. Messages with no close twin score 0.992, so
+Bitext is simply easy (intents separable by keywords). Median similarity is higher on Bitext (0.78 vs 0.56),
+confirming it is more templated. Limit: this measures shared wording, not paraphrases with different words.

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 3.1 - Intent baseline (complete); awaiting review before 3.2
+Last updated: 2026-11-13 | Current phase: 3.2 - Classical model comparison (code done, XGBoost results pending)
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -60,8 +60,19 @@ Last updated: 2026-11-13 | Current phase: 3.1 - Intent baseline (complete); awai
       55 tests pass; ruff and mypy --strict clean.
 - [x] MLflow default changed to `sqlite:///mlflow.db` (MLflow 3.18 refuses the `./mlruns` file store).
 
+- [x] Phase 3.1 committed and pushed (`94acb18`).
+- [x] Phase 3.2a: Bitext near-duplicate leakage check (`supportx.data.similarity`): only 14% of validation texts
+      have a close twin in train; accuracy without a twin is still 0.992, so Bitext is just easy, not leaked.
+      Results in `docs/EXPERIMENTS.md` (E2).
+- [x] Phase 3.2b (code): `IntentClassifier` supports `model="logreg"` or `"xgboost"` (label encoding, so string
+      labels work), `train_intent` has `--model`, `--n-estimators`, `--models-root` and logs `train_seconds`.
+      Tests added; ruff and mypy --strict clean. Old saved model files from 3.1 are in the previous format and were
+      re-created by the comparison run.
+- [ ] Phase 3.2b (results): LogReg C sweep and XGBoost comparison were still running at commit time.
+      Bitext LogReg val acc: C=1 0.9905, C=10 0.993, C=100 0.9909. Remaining results go in `docs/EXPERIMENTS.md` (E3).
+
 ## Pending
-- [ ] Uncommitted: Phase 3.1 code, tests, docs (commit/push needs approval)
+- [ ] Full test suite was not re-run after the 3.2 changes (the touched modules' tests pass: 13 ML + 5 similarity)
 - [ ] Sentiment, priority, routing and resolution-time models (need data decisions; see `docs/DATASETS.md`)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
 - [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
@@ -77,5 +88,5 @@ Last updated: 2026-11-13 | Current phase: 3.1 - Intent baseline (complete); awai
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 3.2: improve and stress-test the intent baseline - a stronger classical model (e.g. XGBoost or a
-linear SVM) compared fairly on validation, plus the near-duplicate leakage check on Bitext.
+Record the comparison results (E3), then Phase 4.1: first deep-learning intent model (Keras Embedding + BiLSTM)
+with the same fit/predict/predict_proba/save/load interface, compared against the classical baselines on validation.

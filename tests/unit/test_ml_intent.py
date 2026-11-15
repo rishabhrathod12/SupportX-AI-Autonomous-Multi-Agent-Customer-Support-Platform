@@ -40,6 +40,26 @@ def test_predict_with_confidence(trained: IntentClassifier) -> None:
     assert 0.0 < confidence <= 1.0
 
 
+def test_xgboost_variant_trains_predicts_and_round_trips(
+    tickets: pd.DataFrame, tmp_path: Path
+) -> None:
+    model = IntentClassifier(model="xgboost", n_estimators=20).fit(
+        tickets["text"], tickets["intent"]
+    )
+    assert model.predict(["Where is my order ORD-12345?"]) == ["track_order"]
+    probs = model.predict_proba(["I want a refund for order ORD-5."])
+    assert np.allclose(probs.sum(axis=1), 1.0)
+    assert set(model.classes_) == set(tickets["intent"])  # string labels survive encoding
+    loaded = IntentClassifier.load(model.save(tmp_path / "xgb.joblib"))
+    assert loaded.predict(["cancel order ORD-9"]) == model.predict(["cancel order ORD-9"])
+    assert loaded.params["model"] == "xgboost"
+
+
+def test_unknown_model_kind_is_rejected() -> None:
+    with pytest.raises(ModelError, match="Unknown model"):
+        IntentClassifier(model="svm")  # type: ignore[arg-type]
+
+
 def test_unfitted_model_raises() -> None:
     with pytest.raises(ModelError, match="not trained"):
         IntentClassifier().predict(["hi"])
