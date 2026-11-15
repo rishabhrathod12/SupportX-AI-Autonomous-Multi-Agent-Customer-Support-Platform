@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 8.1 - FastAPI skeleton (complete); awaiting review before the next phase
+Last updated: 2026-11-13 | Current phase: 6.1 - Retrieval for RAG (complete, uncommitted); awaiting review before the next phase
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -101,8 +101,25 @@ Last updated: 2026-11-13 | Current phase: 8.1 - FastAPI skeleton (complete); awa
       file over HTTP: request, staff auth, approve, double-approve 409, row saved in the file.
       ruff and mypy --strict clean. New setting: `STAFF_API_KEY`.
 
+- [x] Phase 8.1 committed and pushed (`161a5a4`), including `tests/conftest.py`: the API tests left a logging handler
+      behind that broke a later test (reproduced without the fixture, fixed with it). Full suite at that point:
+      137 tests, 136 passed + that 1, now fixed.
+- [x] Phase 6.1 (retrieval half of RAG, no API key needed): `supportx.rag` - Markdown chunking that keeps source file
+      and heading path, a local TF-IDF embedder (LEXICAL: matches words, not meaning), FAISS exact inner-product
+      index with save/load (bytes via Python I/O, tested in a folder containing an en dash), and a retriever with a
+      minimum-score cutoff so "nothing relevant found" is possible. Three DEMO policy documents (fictional, consistent
+      with the demo refund rules) in `data/sample/policies/`. 26 tests, 99% coverage of `supportx.rag`;
+      ruff and mypy --strict clean.
+      Retrieval check on 6 hand-written questions (written before seeing results): right document in the top 3 for
+      6/6, ranked first for 5/6. The miss ("Can I cancel my order after it has shipped?") ranks the shipping policy first
+      because 'cancel' does not match 'cancelling'/'cancelled' (no stemming); the right passage is second.
+      6 questions cannot measure real quality; a semantic embedding model should fix this class of miss.
+
 ## Pending
-- [ ] Uncommitted: Phase 8.1 code, tests, README/status docs (commit/push needs approval)
+- [ ] Uncommitted: Phase 6.1 code, tests, demo policy documents, status (commit/push needs approval)
+- [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
+      OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a
+      newer major version than I know well, so the wrapper must be checked against the installed SDK before use.
 - [ ] API limits before production: one shared staff key (approver name is self-declared), customers identified only
       by order number + email, no rate limiting, no HTTPS, no Alembic migrations, no PostgreSQL run.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
@@ -129,8 +146,8 @@ Last updated: 2026-11-13 | Current phase: 8.1 - FastAPI skeleton (complete); awa
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 6.1: LLM and RAG foundation - a thin OpenAI wrapper (retries, timeouts, no key in code) and the policy-document
-pipeline (chunking, embeddings, FAISS, retriever with source citations). Needs an OPENAI_API_KEY in `.env`
-(not configured yet) for anything that calls the API; chunking and retrieval logic can be built and tested without one.
+Phase 6.2 needs an OpenAI API key (see Pending). Without one, the next useful steps are Phase 7.1 (the LangGraph
+skeleton: shared state, supervisor routing and the human-approval interrupt, with the agents mocked) or giving the
+lexical retriever stemming. To be chosen with the user.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).
