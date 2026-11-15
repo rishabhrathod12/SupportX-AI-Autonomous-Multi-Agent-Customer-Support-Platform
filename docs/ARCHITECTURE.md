@@ -48,7 +48,12 @@ Dependency rule: arrows only point downward in the table. `ml`, `dl`, `rag`, `ag
 1. **`src/` layout** - prevents accidental imports from the repo root and mirrors real packages.
 2. **ML and DL are separate packages with the same interface** (`train`, `evaluate`, `save`, `load`, `predict`). The agents depend on the interface, so a model can be swapped (e.g., XGBoost -> BiLSTM) after comparing metrics in MLflow.
 3. **Refund eligibility is deterministic code, not LLM judgment.** The LLM only explains the decision. Money-related logic must be testable and auditable.
-4. **Human approval is a LangGraph interrupt with a checkpointer**, so a paused workflow survives restarts and resumes after an approver decides via the API.
+4. **Human approval is a LangGraph interrupt with a checkpointer.** The paused ticket (one thread per ticket) resumes
+   when a person decides. Today the checkpointer is `InMemorySaver`, which is lost when the process restarts; a
+   persistent checkpointer (PostgreSQL or SQLite) is required before paused tickets can survive a restart. When a
+   ticket resumes, the paused node re-runs from its start, so code before `interrupt()` must have no side effects.
+   An agent that still fails after its retries does not crash the ticket: an error handler records the failure
+   (details go to the logs only) and the Supervisor hands the ticket to a human.
 5. **FAISS first behind a `Retriever` interface**; pgvector can replace it later without touching agents.
 6. **Services layer has no framework code**, so business rules are unit-testable without FastAPI, the DB, or the LLM.
 7. **Secrets only through environment variables** (`pydantic-settings`); `.env` is git-ignored, `.env.example` is committed.

@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 6.1 - Retrieval for RAG (complete, uncommitted); awaiting review before the next phase
+Last updated: 2026-11-13 | Current phase: 7.1 - LangGraph skeleton (complete, uncommitted); awaiting review before the next phase
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -115,8 +115,28 @@ Last updated: 2026-11-13 | Current phase: 6.1 - Retrieval for RAG (complete, unc
       because 'cancel' does not match 'cancelling'/'cancelled' (no stemming); the right passage is second.
       6 questions cannot measure real quality; a semantic embedding model should fix this class of miss.
 
+- [x] Phase 6.1 committed and pushed (`43fc099`).
+- [x] Phase 7.1 (LangGraph skeleton with stub agents): `supportx.agents` - `TicketState`, a pure rule-based
+      Supervisor (`decide_next`) in a hub-and-spoke graph, the agent interface (`AgentSet`), deterministic stub agents
+      (keyword intent/sentiment, the REAL RAG retriever, an in-memory order book), a grounded template reply composer,
+      human-in-the-loop via `interrupt()` + `Command(resume=...)` with a validated `HumanDecision`, node retries
+      (`RetryPolicy` on `ExternalServiceError`), and an `error_handler` that degrades to a human handoff.
+      Escalation triggers: low intent confidence, urgent negative sentiment, complaint / human requested, no matching
+      policy ("never answer from nothing"), failed agent, step limit. Missing order number/email is asked for, not guessed.
+      Verified against the installed LangGraph 1.2.21 by experiment first. 40 tests, 98% coverage of `supportx.agents`;
+      ruff and mypy --strict clean.
+      Bugs found by the tests: (1) an agent that still failed after its retries ended the run with no reply, because
+      the error handler must return `Command(goto="supervisor")`; fixed.
+
 ## Pending
-- [ ] Uncommitted: Phase 6.1 code, tests, demo policy documents, status (commit/push needs approval)
+- [ ] Uncommitted: Phase 7.1 code, tests, ARCHITECTURE/status notes (commit/push needs approval)
+- [ ] Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
+      tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
+      passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
+      should see several passages; a semantic embedding model should help.
+- [ ] Paused tickets live in `InMemorySaver`: lost on restart. A persistent checkpointer is still needed.
+- [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
+- [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
 - [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
       OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a
       newer major version than I know well, so the wrapper must be checked against the installed SDK before use.
@@ -146,8 +166,9 @@ Last updated: 2026-11-13 | Current phase: 6.1 - Retrieval for RAG (complete, unc
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 6.2 needs an OpenAI API key (see Pending). Without one, the next useful steps are Phase 7.1 (the LangGraph
-skeleton: shared state, supervisor routing and the human-approval interrupt, with the agents mocked) or giving the
-lexical retriever stemming. To be chosen with the user.
+Phase 7.2: replace the stubs with the real components, one at a time, each tested - the trained intent model
+(`IntentClassifier`), the order/refund services over the database (`OrderService`, `RefundWorkflow`, with the refund
+request created before the pause and decided by the existing staff endpoints), then expose the ticket graph through
+the API. Phase 6.2 (OpenAI) still needs an API key.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).
