@@ -6,7 +6,9 @@ from supportx.core.exceptions import (
     DataError,
     ExternalServiceError,
     ModelError,
+    NotFoundError,
     SupportXError,
+    WorkflowError,
 )
 from supportx.core.logging_config import get_logger, setup_logging
 
@@ -15,8 +17,10 @@ __all__ = [
     "DataError",
     "ExternalServiceError",
     "ModelError",
+    "NotFoundError",
     "Settings",
     "SupportXError",
+    "WorkflowError",
     "get_logger",
     "get_settings",
     "setup_logging",

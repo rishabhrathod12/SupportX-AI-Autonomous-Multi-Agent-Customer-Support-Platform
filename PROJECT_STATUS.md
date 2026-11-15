@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 5.1 - Database models and refund rules (complete); awaiting review before 5.2
+Last updated: 2026-11-13 | Current phase: 5.2 - Repositories and refund workflow (complete); awaiting review before the next phase
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -84,8 +84,18 @@ Last updated: 2026-11-13 | Current phase: 5.1 - Database models and refund rules
       28 new tests, 100% coverage of the new code, run on in-memory SQLite with SQLAlchemy warnings as errors;
       ruff and mypy --strict clean.
 
+- [x] Phase 5.1 committed and pushed (`01e9d52`).
+- [x] Phase 5.2: `supportx.db.repositories` (order/refund queries, UTC normalization), `supportx.services.orders`
+      (owner-only order summary; wrong email and missing order give the same error) and
+      `supportx.services.refund_workflow` (check eligibility, create a PENDING request only when the rules allow,
+      human approve/reject with approver, time and note recorded, no double decisions, amount re-checked at approval).
+      22 new tests (50 across db/services), 100% coverage, SQLAlchemy warnings treated as errors;
+      ruff and mypy --strict clean. New exceptions: `NotFoundError`, `WorkflowError`.
+
 ## Pending
-- [ ] Uncommitted: Phase 5.1 code, tests, docs (commit/push needs approval)
+- [ ] Uncommitted: Phase 5.2 code, tests, docs (commit/push needs approval)
+- [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
+      NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
 - [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
       order can be reported "not received") are DEMO DEFAULTS I chose, not your real policy. Please confirm or
       replace them, along with the rules themselves (e.g. final-sale items, one pending request per order).
@@ -108,8 +118,8 @@ Last updated: 2026-11-13 | Current phase: 5.1 - Database models and refund rules
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 5.2: repository and workflow layer on top of the 5.1 models - look up an order by order number, build
-`OrderFacts` from the database (normalizing SQLite datetimes to UTC), create a refund request only when the rules
-allow it, and approve/reject it with who/when/why recorded; all tested on in-memory SQLite.
+Phase 6.1 (LLM and RAG foundation) or Phase 8.1 (FastAPI skeleton), to be chosen with the user. Recommendation: FastAPI
+skeleton first (health check, order lookup and refund endpoints over the 5.2 services, including the human
+approval endpoints), because it needs no API key and makes the workflow usable; the OpenAI/RAG work needs an API key.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).

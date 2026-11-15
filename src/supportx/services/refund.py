@@ -94,6 +94,17 @@ class RefundDecision(BaseModel):
     policy_version: str
 
 
+def _refundable_total(order: OrderFacts) -> int:
+    """Value of all items that are allowed to be refunded (final-sale items excluded)."""
+    return sum(i.unit_price_cents * i.quantity for i in order.items if not i.final_sale)
+
+
+def refundable_cents(order: OrderFacts, existing_refunds: tuple[ExistingRefund, ...]) -> int:
+    """Money that can still be refunded: refundable items minus refunds already approved."""
+    approved = sum(r.amount_cents for r in existing_refunds if r.status is RefundStatus.APPROVED)
+    return max(_refundable_total(order) - approved, 0)
+
+
 def format_money(cents: int) -> str:
     return f"{cents // 100}.{cents % 100:02d}"
 
@@ -144,11 +155,8 @@ def evaluate_refund(
         return result()
 
     # How much money could still be refunded?
-    refundable_total = sum(i.unit_price_cents * i.quantity for i in order.items if not i.final_sale)
-    already_refunded = sum(
-        r.amount_cents for r in existing_refunds if r.status is RefundStatus.APPROVED
-    )
-    max_refundable = max(refundable_total - already_refunded, 0)
+    refundable_total = _refundable_total(order)
+    max_refundable = refundable_cents(order, existing_refunds)
     if refundable_total == 0:
         deny(DenialCode.ALL_ITEMS_FINAL_SALE, "All items on this order are final sale.")
     elif max_refundable == 0:
