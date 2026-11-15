@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 2.3 - complete (NLP preprocessing, datasets downloaded, first EDA); awaiting review before 2.4
+Last updated: 2026-11-13 | Current phase: 2 - Data and NLP (complete); awaiting review before Phase 3
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -45,8 +45,14 @@ Last updated: 2026-11-13 | Current phase: 2.3 - complete (NLP preprocessing, dat
 - [x] Phase 2.3c: first look at the data, findings in `docs/DATASETS.md` (duplicates, placeholders,
       class balance, 7 Banking77 train/test overlaps).
 
+- [x] Phase 2.3 committed and pushed (`2c65e11`).
+- [x] Phase 2.4: `clean_text` maps `{{Slot Name}}` to `<slot_name>`; `supportx.data.prepare` builds
+      deduplicated, stratified, leak-checked train/val/test files in `data/processed/` (git-ignored).
+      Bitext 19,409/2,427/2,427; Banking77 8,992/1,000/3,080 (official test). 44 tests pass;
+      ruff and mypy --strict clean. `pyarrow` pinned in requirements.txt (was only an MLflow dependency).
+
 ## Pending
-- [ ] Uncommitted: nlp preprocessing, tests, docs, status, download.py logging tweak (commit/push needs approval)
+- [ ] Uncommitted: Phase 2.4 code, tests, docs (commit/push needs approval)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
 - [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
 
@@ -61,6 +67,6 @@ Last updated: 2026-11-13 | Current phase: 2.3 - complete (NLP preprocessing, dat
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 2.4: data preparation - placeholder handling in `clean_text`, dedupe + stratified
-train/validation/test split for Bitext, Banking77 cleanup (label names, overlap), saved to
-`data/processed/` with tests.
+Phase 3.1: first classical-ML baseline - intent classification (TF-IDF + Logistic Regression) on the
+prepared Bitext and Banking77 splits, evaluated on validation (test untouched until the end), with
+MLflow tracking, save/load/predict, and tests.

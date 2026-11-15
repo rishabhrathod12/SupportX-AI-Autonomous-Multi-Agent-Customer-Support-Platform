@@ -58,6 +58,27 @@ Downloaded to `data/raw/` (git-ignored); sizes match the Hugging Face file listi
 3. Use Banking77's official train/test split, drop the 7 overlapping texts from train, and get the label names from the card.
 4. Keep reporting Bitext results as "synthetic data" and Banking77 as the less-controlled check.
 
+## Prepared splits (Phase 2.4)
+
+Created by `python -m supportx.data.prepare all`; written to `data/processed/<name>/{train,val,test}.csv`
+(git-ignored) with a `SPLIT_INFO.json` per dataset. Seed 42, stratified, text deduplicated on the
+cleaned form before splitting, and a check that no cleaned text appears in two splits.
+Files keep the raw `text`; models must call `supportx.nlp.clean_text` themselves.
+
+| Dataset | Train | Val | Test | Removed |
+|---|---|---|---|---|
+| Bitext (synthetic) | 19,409 | 2,427 | 2,427 | 2,609 duplicates, 0 label conflicts |
+| Banking77 | 8,992 | 1,000 | 3,080 (official, untouched) | 4 train duplicates, 7 train rows that also appear in test |
+
+Findings from checking the result:
+- **Bitext is no longer balanced after deduplication.** Per-intent counts in train range from 347 to 797
+  (raw: 950-1000), meaning some intents were padded with many repeated phrasings. Use macro-F1 and
+  per-class reports, not only accuracy; consider class weights.
+- **Banking77 validation is small** (3-19 examples per class), so per-class validation numbers are noisy.
+  The official test split is exactly 40 per class and keeps its 1 internal duplicate.
+- Template slots such as `{{Order Number}}` are turned into single tokens (`<order_number>`) by `clean_text`.
+  Because of this, 11 more duplicates were found than in the first EDA (2,609 vs 2,598).
+
 ## Open verification items
 - [x] Licenses read by the user before downloading (CDLA-Sharing-1.0 and CC BY 4.0); the user's notes on implications are not recorded here.
 - [ ] Confirm from Bitext's full card that the full intent list matches (only part of the page was read verbatim).
@@ -74,6 +95,7 @@ python -m supportx.data.download banking77 --accept-license   # -> data/raw/bank
 - Files come from a pinned Hugging Face commit; `MANIFEST.json` records revision, license, the synthetic flag and SHA-256 hashes.
 - Amazon Reviews 2023 is not automated: it is huge and its terms are still unread. A subsample step comes later (Phase 2.3).
 - Synthetic demo data for tests: `python -m supportx.data.sample` (demo only; labels are rule-generated).
+- After downloading: `python -m supportx.data.prepare all` builds the train/val/test files (see below).
 
 ## Storage rules
 - Real/downloaded data: `data/raw/` (git-ignored, never committed).

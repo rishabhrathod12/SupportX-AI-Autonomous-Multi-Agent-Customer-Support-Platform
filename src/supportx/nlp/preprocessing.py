@@ -15,8 +15,18 @@ EMAIL_TOKEN = "<email>"
 _EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b", re.IGNORECASE)
 _URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)  # runs before lowercasing
 _SPACES = re.compile(r"\s+")
+_TEMPLATE_SLOT = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")  # dataset slots like {{Order Number}}
+_NON_WORD = re.compile(r"[^a-z0-9]+")
 # a placeholder like <url>, or a word/number with an optional contraction suffix (don't, it's)
-_TOKEN = re.compile(r"<[a-z_]+>|[a-z0-9]+(?:'[a-z]+)?")
+_TOKEN = re.compile(r"<[a-z0-9_]+>|[a-z0-9]+(?:'[a-z]+)?")
+
+
+def _slot_to_token(match: re.Match[str]) -> str:
+    """'{{Order Number}}' -> ' <order_number> '"""
+    name = _NON_WORD.sub("_", match.group(1).lower()).strip("_")
+    return f" <{name}> "
+
+
 _APOSTROPHES = str.maketrans({"’": "'", "‘": "'", "ʼ": "'"})
 
 
@@ -25,6 +35,7 @@ def clean_text(text: str, lowercase: bool = True) -> str:
     if not isinstance(text, str):
         raise TypeError(f"clean_text expects str, got {type(text).__name__}")
     text = unicodedata.normalize("NFKC", text).translate(_APOSTROPHES)
+    text = _TEMPLATE_SLOT.sub(_slot_to_token, text)
     text = _EMAIL.sub(f" {EMAIL_TOKEN} ", text)  # emails first, so their domain isn't read as a URL
     text = _URL.sub(f" {URL_TOKEN} ", text)
     text = _SPACES.sub(" ", text).strip()

@@ -52,7 +52,11 @@ REGISTRY: dict[str, DatasetSpec] = {
         name="banking77",
         repo="PolyAI/banking77",
         revision="1846984189f2bc0ac51c6fc3a600fa9e1714e0c6",
-        files=("data/train-00000-of-00001.parquet", "data/test-00000-of-00001.parquet"),
+        files=(
+            "data/train-00000-of-00001.parquet",
+            "data/test-00000-of-00001.parquet",
+            "README.md",  # holds the label id -> name list
+        ),
         license_id="cc-by-4.0",
         license_note="Attribution required: Casanueva et al., 2020 (arXiv:2003.04807).",
         synthetic=None,  # data provenance is not stated on the card

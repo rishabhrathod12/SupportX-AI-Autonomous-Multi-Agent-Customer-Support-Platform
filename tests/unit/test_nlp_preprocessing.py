@@ -33,6 +33,17 @@ def test_clean_text_is_idempotent() -> None:
     assert clean_text(once) == once
 
 
+def test_template_slots_become_single_tokens() -> None:
+    text = "Where is order {{Order Number}} for {{ Person Name }}?"
+    assert clean_text(text) == "where is order <order_number> for <person_name> ?"
+    assert tokenize(text) == ["where", "is", "order", "<order_number>", "for", "<person_name>"]
+
+
+def test_template_slot_cleaning_is_idempotent() -> None:
+    once = clean_text("refund {{Refund Amount}} please")
+    assert clean_text(once) == once
+
+
 def test_clean_text_rejects_non_strings() -> None:
     with pytest.raises(TypeError):
         clean_text(123)  # type: ignore[arg-type]
