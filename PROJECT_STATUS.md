@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 3.2 - Classical model comparison (code done, XGBoost results pending)
+Last updated: 2026-11-13 | Current phase: 4.1 - Deep-learning intent baseline (complete); awaiting direction for the next phase
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -68,11 +68,19 @@ Last updated: 2026-11-13 | Current phase: 3.2 - Classical model comparison (code
       labels work), `train_intent` has `--model`, `--n-estimators`, `--models-root` and logs `train_seconds`.
       Tests added; ruff and mypy --strict clean. Old saved model files from 3.1 are in the previous format and were
       re-created by the comparison run.
-- [ ] Phase 3.2b (results): LogReg C sweep and XGBoost comparison were still running at commit time.
-      Bitext LogReg val acc: C=1 0.9905, C=10 0.993, C=100 0.9909. Remaining results go in `docs/EXPERIMENTS.md` (E3).
+- [x] Phase 3.2b (results): LogReg C sweep and XGBoost comparison finished (E3 in `docs/EXPERIMENTS.md`):
+      LogReg C=10 is the reference; XGBoost (untuned) is worse (Bitext 0.983, Banking77 0.823) and ~50-60x slower.
+- [x] Phase 4.1: `supportx.dl.intent.KerasIntentClassifier` (Embedding + BiLSTM, early stopping, class weights,
+      save/load) and `supportx.dl.train_intent`; shared helpers `supportx.data.splits` and `supportx.ml.experiment`;
+      `ml.train_intent` refactored to use them. First runs (E4): Bitext 0.992 (tie with LogReg), Banking77 0.851 vs
+      LogReg 0.886 (BiLSTM worse, overfits). Classical model stays the reference.
+- [x] Full test suite: 70 tests (69 passed, 1 test of mine was wrong and was rewritten, then passed); ruff and
+      mypy --strict clean. The suite takes about 7 minutes on this machine because of TensorFlow.
 
 ## Pending
-- [ ] Full test suite was not re-run after the 3.2 changes (the touched modules' tests pass: 13 ML + 5 similarity)
+- [ ] Uncommitted: Phase 4.1 code/tests, `ml.train_intent` refactor, E3/E4 docs (commit/push needs approval)
+- [ ] The epoch-logging callback in `dl/intent.py` was added after the last full test run; the training runs
+      exercised it, but the DL tests were not re-run after it.
 - [ ] Sentiment, priority, routing and resolution-time models (need data decisions; see `docs/DATASETS.md`)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
 - [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
@@ -88,5 +96,7 @@ Last updated: 2026-11-13 | Current phase: 3.2 - Classical model comparison (code
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Record the comparison results (E3), then Phase 4.1: first deep-learning intent model (Keras Embedding + BiLSTM)
-with the same fit/predict/predict_proba/save/load interface, compared against the classical baselines on validation.
+To be decided with the user. Candidates: (a) Phase 5 start - SQLAlchemy models, order/refund services and the
+deterministic refund-eligibility rules, tested on in-memory SQLite (no Docker/PostgreSQL needed yet);
+(b) sentiment model - blocked until the user reads the Amazon Reviews 2023 terms;
+(c) tuning or pretrained embeddings for the DL intent model - needs the deferred Hugging Face/PyTorch install.

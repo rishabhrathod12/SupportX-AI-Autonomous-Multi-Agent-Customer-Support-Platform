@@ -43,3 +43,55 @@ validation text to its closest training text). The test splits were not used.
 Conclusion: near-duplicates are not what drives Bitext's 0.99. Messages with no close twin score 0.992, so
 Bitext is simply easy (intents separable by keywords). Median similarity is higher on Bitext (0.78 vs 0.56),
 confirming it is more templated. Limit: this measures shared wording, not paraphrases with different words.
+
+### E3 - Classical model comparison (validation split, seed 42, same TF-IDF features)
+Run date: 2026-11-15. `python -m supportx.ml.train_intent <dataset> --model logreg|xgboost [--c N]`.
+XGBoost: 200 trees, max_depth 6, learning_rate 0.2, subsample 0.8, colsample_bytree 0.5 (not tuned).
+Train times are wall-clock seconds on this slow, CPU-only Windows machine (other programs were also running).
+
+| Model | Bitext acc / macro-F1 | Bitext train s | Banking77 acc / macro-F1 | Banking77 train s |
+|---|---|---|---|---|
+| LogReg C=1 | 0.9905 / 0.9896 | 4.3 | 0.870 / 0.866 | 7.9 |
+| LogReg C=10 (E1) | 0.993 / 0.992 | 6.0 | 0.886 / 0.883 | 11.7 |
+| LogReg C=100 | 0.9909 / 0.990 | 4.2 | 0.892 / 0.890 | 12.4 |
+| XGBoost, 200 trees | 0.9827 / 0.9815 | 319.6 | 0.823 / 0.816 | 708.4 |
+
+Weakest XGBoost intents (F1): Bitext create_account 0.935, delete_account 0.935, cancel_order 0.943;
+Banking77 card_not_working 0.500, topping_up_by_card 0.556, contactless_not_working 0.600.
+
+Conclusions:
+- **Logistic Regression beats XGBoost on both datasets and trains about 50x (Bitext) to 60x (Banking77) faster.**
+  Gradient-boosted trees fit high-dimensional sparse text features poorly. XGBoost was not tuned, so this describes
+  these settings, not XGBoost in general.
+- **C matters little on Bitext (spread 0.3 points) and moderately on Banking77.** C=100 is 0.6 points above C=10 on
+  Banking77, but with 1,000 validation messages one standard error is about 1 point, so that gap is within noise.
+  We keep C=10 as the reference and do not claim C=100 is better.
+- Reference classical model going forward: TF-IDF + LogReg (C=10). The test splits remain untouched.
+
+### E4 - Deep learning: Embedding + BiLSTM vs the classical reference (validation split, seed 42)
+Run date: 2026-11-15. `python -m supportx.dl.train_intent <dataset>`. One configuration only, not tuned:
+embedding 64, BiLSTM 64 units, dropout 0.3, Adam lr 3e-3, batch 64, balanced class weights, max 30 epochs with
+early stopping (patience 3, best-validation-loss weights restored). Vocabulary: words seen at least twice in train
+(Bitext 1,020 words, max length 14; Banking77 1,420 words, max length 42). Embeddings are learned from scratch.
+
+| Model | Bitext acc / macro-F1 | Bitext train s | Banking77 acc / macro-F1 | Banking77 train s |
+|---|---|---|---|---|
+| TF-IDF + LogReg C=10 (E1) | 0.993 / 0.992 | 6.0 | 0.886 / 0.883 | 11.7 |
+| Embedding + BiLSTM | 0.992 / 0.991 | 133.1 (9 epochs) | 0.851 / 0.847 | 178.8 (11 epochs) |
+
+Weakest BiLSTM intents (F1): Bitext cancel_order 0.953, delete_account 0.972, create_account 0.977;
+Banking77 topping_up_by_card 0.522, transfer_not_received_by_recipient 0.562, card_acceptance 0.571.
+
+Conclusions:
+- **Bitext: a tie.** 0.992 vs 0.993 is far inside the noise (about 0.2 points on 2,427 messages), at about 20x
+  the training time. Bitext is too easy to separate the models.
+- **Banking77: the BiLSTM is worse by about 3.5 points** (0.851 vs 0.886; one standard error is about 1.1 points),
+  and about 15x slower to train. This is one run with one seed and no paired significance test, so treat the size of the
+  gap as approximate.
+- At the chosen stopping point the BiLSTM fit the Banking77 training data much better than validation data
+  (training accuracy 0.958 vs validation 0.856), i.e. it overfits.
+- Hypotheses, NOT tested: (1) learning embeddings from scratch on about 9k messages is too little data, so
+  pretrained embeddings or a pretrained language model (the Hugging Face part we deferred) may close the gap;
+  (2) tuning dropout, size or learning rate could help. Neither is verified.
+- Decision for now: the classical TF-IDF + LogReg model remains the best and cheapest intent model. The BiLSTM stays as a
+  documented experiment; it is not worth its cost on this evidence. Test splits are still untouched.

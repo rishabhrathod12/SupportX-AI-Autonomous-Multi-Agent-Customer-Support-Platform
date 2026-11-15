@@ -34,7 +34,7 @@ Customer query
 | `data` | License-gated dataset download (pinned revisions, SHA-256 manifest) and a labeled synthetic sample generator for tests | `core` |
 | `nlp` | Text cleaning, tokenization, NLTK utilities (shared preprocessing) | `core` |
 | `ml` | Classical ML: intent, sentiment, priority, routing, resolution time (sklearn/XGBoost). Train, evaluate, save, load, predict | `core`, `nlp` |
-| `dl` | TensorFlow/Keras: dense NN, LSTM/BiLSTM for intent and sentiment; same train/evaluate/save/load/predict contract as `ml` | `core`, `nlp` |
+| `dl` | TensorFlow/Keras: dense NN, LSTM/BiLSTM for intent and sentiment; same train/evaluate/save/load/predict contract as `ml` | `core`, `nlp`, `data` (split loading), and the shared metric/logging helpers `ml.evaluate` / `ml.experiment` |
 | `llm` | Thin OpenAI/LangChain wrapper: retries, timeouts, prompt templates | `core` |
 | `rag` | Document loading, chunking, embeddings, FAISS index, retriever (pgvector-ready interface) | `core`, `llm` |
 | `agents` | LangGraph state, graph, one module per agent, routing, human-in-the-loop | `core`, `ml`, `dl`, `rag`, `llm`, `services` |
