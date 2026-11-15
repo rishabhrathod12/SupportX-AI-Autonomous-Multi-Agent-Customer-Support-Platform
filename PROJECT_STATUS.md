@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 4.1 - Deep-learning intent baseline (complete); awaiting direction for the next phase
+Last updated: 2026-11-13 | Current phase: 5.1 - Database models and refund rules (complete); awaiting review before 5.2
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -77,8 +77,20 @@ Last updated: 2026-11-13 | Current phase: 4.1 - Deep-learning intent baseline (c
 - [x] Full test suite: 70 tests (69 passed, 1 test of mine was wrong and was rewritten, then passed); ruff and
       mypy --strict clean. The suite takes about 7 minutes on this machine because of TensorFlow.
 
+- [x] Phase 4.1 and 3.2 results committed and pushed (`5793e3c`).
+- [x] Phase 5.1: `supportx.db` (enums; models for customers, orders, order items, shipments, refund requests;
+      engine/session helpers) and `supportx.services.refund` (deterministic refund-eligibility rule engine:
+      pure, takes `now`, integer cents, always `requires_human_approval=True`, machine-readable denial codes).
+      28 new tests, 100% coverage of the new code, run on in-memory SQLite with SQLAlchemy warnings as errors;
+      ruff and mypy --strict clean.
+
 ## Pending
-- [ ] Uncommitted: Phase 4.1 code/tests, `ml.train_intent` refactor, E3/E4 docs (commit/push needs approval)
+- [ ] Uncommitted: Phase 5.1 code, tests, docs (commit/push needs approval)
+- [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
+      order can be reported "not received") are DEMO DEFAULTS I chose, not your real policy. Please confirm or
+      replace them, along with the rules themselves (e.g. final-sale items, one pending request per order).
+- [ ] Not yet tested against PostgreSQL (Docker and PostgreSQL are not installed); SQLite returns naive datetimes,
+      so the repository layer must normalize them to UTC (planned for 5.2).
 - [ ] The epoch-logging callback in `dl/intent.py` was added after the last full test run; the training runs
       exercised it, but the DL tests were not re-run after it.
 - [ ] Sentiment, priority, routing and resolution-time models (need data decisions; see `docs/DATASETS.md`)
@@ -96,7 +108,8 @@ Last updated: 2026-11-13 | Current phase: 4.1 - Deep-learning intent baseline (c
 - No models trained; no datasets chosen yet.
 
 ## Next task
-To be decided with the user. Candidates: (a) Phase 5 start - SQLAlchemy models, order/refund services and the
-deterministic refund-eligibility rules, tested on in-memory SQLite (no Docker/PostgreSQL needed yet);
-(b) sentiment model - blocked until the user reads the Amazon Reviews 2023 terms;
-(c) tuning or pretrained embeddings for the DL intent model - needs the deferred Hugging Face/PyTorch install.
+Phase 5.2: repository and workflow layer on top of the 5.1 models - look up an order by order number, build
+`OrderFacts` from the database (normalizing SQLite datetimes to UTC), create a refund request only when the rules
+allow it, and approve/reject it with who/when/why recorded; all tested on in-memory SQLite.
+Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
+DL intent model (needs the deferred Hugging Face/PyTorch install).

@@ -69,7 +69,11 @@ Dependency rule: arrows only point downward in the table. `ml`, `dl`, `rag`, `ag
 
 ## 5. Data model (initial sketch)
 
-`customers`, `orders`, `order_items`, `shipments`, `tickets`, `ticket_messages`, `refund_requests` (status: pending_approval / approved / rejected), `approvals`, `audit_logs`.
+Implemented (Phase 5.1): `customers`, `orders`, `order_items`, `shipments`, `refund_requests`.
+Money is stored as integer cents; timestamps are timezone-aware UTC. The human decision is stored on the
+refund request itself (`status` pending_approval / approved / rejected, `decided_by`, `decided_at`,
+`decision_note`), so there is no separate `approvals` table.
+Planned: `tickets`, `ticket_messages`, `audit_logs`.
 
 ## 6. Testing strategy
 
