@@ -17,5 +17,9 @@ class ExternalServiceError(SupportXError):
     """A call to an external service (OpenAI, database, ...) failed."""
 
 
+class ModelError(SupportXError):
+    """A model is not trained, cannot be loaded, or received unusable input."""
+
+
 class DataError(SupportXError):
     """A dataset is unknown, unavailable, or its license was not acknowledged."""

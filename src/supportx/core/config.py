@@ -32,7 +32,8 @@ class Settings(BaseSettings):
 
     database_url: SecretStr | None = None  # contains a password, so also secret
 
-    mlflow_tracking_uri: str = "./mlruns"
+    # MLflow 3 deprecates the './mlruns' file store; SQLite is its recommended local backend.
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
 
     @field_validator("log_level", "app_env", mode="before")
     @classmethod

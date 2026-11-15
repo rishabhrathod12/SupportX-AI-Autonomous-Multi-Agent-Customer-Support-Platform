@@ -25,7 +25,7 @@ def test_defaults() -> None:
     assert s.app_env == "development"
     assert s.log_level == "INFO"
     assert s.openai_api_key is None
-    assert s.mlflow_tracking_uri == "./mlruns"
+    assert s.mlflow_tracking_uri == "sqlite:///mlflow.db"
 
 
 def test_reads_environment_and_normalizes_case(monkeypatch: pytest.MonkeyPatch) -> None:

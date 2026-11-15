@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 2 - Data and NLP (complete); awaiting review before Phase 3
+Last updated: 2026-11-13 | Current phase: 3.1 - Intent baseline (complete); awaiting review before 3.2
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -51,8 +51,18 @@ Last updated: 2026-11-13 | Current phase: 2 - Data and NLP (complete); awaiting 
       Bitext 19,409/2,427/2,427; Banking77 8,992/1,000/3,080 (official test). 44 tests pass;
       ruff and mypy --strict clean. `pyarrow` pinned in requirements.txt (was only an MLflow dependency).
 
+- [x] Phase 2.4 committed and pushed (`d091bf0`).
+- [x] Phase 3.1: intent baseline (TF-IDF + Logistic Regression): `supportx.ml.intent`
+      (`IntentClassifier`: fit/predict/predict_proba/save/load), `supportx.ml.evaluate`,
+      `supportx.ml.train_intent` with MLflow tracking (SQLite backend) and a majority-class sanity baseline.
+      Validation results (test untouched): Bitext (synthetic) acc 0.993 / macro-F1 0.992;
+      Banking77 acc 0.886 / macro-F1 0.883. Details in `docs/EXPERIMENTS.md`.
+      55 tests pass; ruff and mypy --strict clean.
+- [x] MLflow default changed to `sqlite:///mlflow.db` (MLflow 3.18 refuses the `./mlruns` file store).
+
 ## Pending
-- [ ] Uncommitted: Phase 2.4 code, tests, docs (commit/push needs approval)
+- [ ] Uncommitted: Phase 3.1 code, tests, docs (commit/push needs approval)
+- [ ] Sentiment, priority, routing and resolution-time models (need data decisions; see `docs/DATASETS.md`)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
 - [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
 
@@ -67,6 +77,5 @@ Last updated: 2026-11-13 | Current phase: 2 - Data and NLP (complete); awaiting 
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 3.1: first classical-ML baseline - intent classification (TF-IDF + Logistic Regression) on the
-prepared Bitext and Banking77 splits, evaluated on validation (test untouched until the end), with
-MLflow tracking, save/load/predict, and tests.
+Phase 3.2: improve and stress-test the intent baseline - a stronger classical model (e.g. XGBoost or a
+linear SVM) compared fairly on validation, plus the near-duplicate leakage check on Bitext.

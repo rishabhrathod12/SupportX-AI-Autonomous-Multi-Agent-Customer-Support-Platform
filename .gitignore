@@ -38,6 +38,7 @@ artifacts/vectorstore/*
 # MLflow
 mlruns/
 mlartifacts/
+mlflow.db
 
 # Notebooks
 .ipynb_checkpoints/
