@@ -32,6 +32,9 @@ class Settings(BaseSettings):
 
     database_url: SecretStr | None = None  # contains a password, so also secret
 
+    # Shared key protecting the staff endpoints (X-API-Key header). Unset = those endpoints are off.
+    staff_api_key: SecretStr | None = None
+
     # MLflow 3 deprecates the './mlruns' file store; SQLite is its recommended local backend.
     mlflow_tracking_uri: str = "sqlite:///mlflow.db"
 

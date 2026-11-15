@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 5.2 - Repositories and refund workflow (complete); awaiting review before the next phase
+Last updated: 2026-11-13 | Current phase: 8.1 - FastAPI skeleton (complete); awaiting review before the next phase
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -92,8 +92,19 @@ Last updated: 2026-11-13 | Current phase: 5.2 - Repositories and refund workflow
       22 new tests (50 across db/services), 100% coverage, SQLAlchemy warnings treated as errors;
       ruff and mypy --strict clean. New exceptions: `NotFoundError`, `WorkflowError`.
 
+- [x] Phase 5.2 committed and pushed (`00a901a`).
+- [x] Phase 8.1: FastAPI app (`supportx.api`): health and readiness, customer endpoints (order lookup, eligibility
+      check, refund request) and staff endpoints (pending list, approve, reject) behind an `X-API-Key` header
+      (constant-time comparison; endpoints are disabled with 503 if `STAFF_API_KEY` is unset). Errors map to 404/409/
+      503/502/500 with generic messages; docs are hidden in production. 21 API tests (94% coverage; the engine-building
+      startup path is covered by a real-server run instead) plus an end-to-end run of real `uvicorn` against a SQLite
+      file over HTTP: request, staff auth, approve, double-approve 409, row saved in the file.
+      ruff and mypy --strict clean. New setting: `STAFF_API_KEY`.
+
 ## Pending
-- [ ] Uncommitted: Phase 5.2 code, tests, docs (commit/push needs approval)
+- [ ] Uncommitted: Phase 8.1 code, tests, README/status docs (commit/push needs approval)
+- [ ] API limits before production: one shared staff key (approver name is self-declared), customers identified only
+      by order number + email, no rate limiting, no HTTPS, no Alembic migrations, no PostgreSQL run.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
       NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
 - [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
@@ -118,8 +129,8 @@ Last updated: 2026-11-13 | Current phase: 5.2 - Repositories and refund workflow
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 6.1 (LLM and RAG foundation) or Phase 8.1 (FastAPI skeleton), to be chosen with the user. Recommendation: FastAPI
-skeleton first (health check, order lookup and refund endpoints over the 5.2 services, including the human
-approval endpoints), because it needs no API key and makes the workflow usable; the OpenAI/RAG work needs an API key.
+Phase 6.1: LLM and RAG foundation - a thin OpenAI wrapper (retries, timeouts, no key in code) and the policy-document
+pipeline (chunking, embeddings, FAISS, retriever with source citations). Needs an OPENAI_API_KEY in `.env`
+(not configured yet) for anything that calls the API; chunking and retrieval logic can be built and tested without one.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).

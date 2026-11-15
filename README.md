@@ -37,6 +37,29 @@ pytest
 
 Linux/macOS: use `source venv/bin/activate` and `cp .env.example .env`.
 
+## Run the API
+
+```powershell
+# in .env (copy of .env.example): set DATABASE_URL and STAFF_API_KEY
+#   quick local option without PostgreSQL:  DATABASE_URL=sqlite:///supportx.db
+$env:PYTHONPATH = "src"
+uvicorn supportx.api.app:create_app --factory --reload
+# interactive docs: http://127.0.0.1:8000/docs  (hidden when APP_ENV=production)
+```
+
+| Endpoint | Who | Purpose |
+|---|---|---|
+| `GET /health`, `GET /health/ready` | anyone | process up / database reachable |
+| `POST /orders/lookup` | customer (order number + email) | order status |
+| `POST /refunds/eligibility` | customer | would a refund be allowed? (creates nothing) |
+| `POST /refunds/requests` | customer | create a pending refund request if the rules allow |
+| `GET /staff/refunds/pending` | staff (`X-API-Key`) | refunds waiting for a decision |
+| `POST /staff/refunds/{id}/approve`, `/reject` | staff (`X-API-Key`) | human decision (reject needs a note) |
+
+Not production-ready yet: staff use one shared API key (the approver name is self-declared), customers are
+identified only by order number + email, and there is no rate limiting or HTTPS. Add real authentication before
+exposing it. The refund policy numbers are demo defaults.
+
 ## Notes
 - TensorFlow on native Windows runs on CPU only. For GPU, use WSL2 (optional, later).
 - PostgreSQL and Docker are required from the database phase onward; they are not needed yet.

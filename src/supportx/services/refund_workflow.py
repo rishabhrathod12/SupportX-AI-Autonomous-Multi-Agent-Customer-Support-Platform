@@ -103,7 +103,9 @@ class RefundWorkflow:
             )
             return decision, None
         request = self._refunds.add(order, decision.proposed_cents, reason)
-        logger.info("Refund request %d created for %s, awaiting approval", request.id, order_number)
+        logger.info(
+            "Refund request %d created for %s, awaiting approval", request.id, order.order_number
+        )
         return decision, request
 
     def approve(
