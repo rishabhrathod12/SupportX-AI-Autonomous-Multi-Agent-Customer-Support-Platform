@@ -22,6 +22,7 @@ from supportx.agents.state import HumanDecision, TicketState
 from supportx.agents.supervisor import (
     HUMAN_APPROVAL,
     KNOWLEDGE,
+    MIN_CONFIDENCE,
     ORDER,
     REFUND,
     RESPOND,
@@ -69,12 +70,13 @@ def build_graph(
     agents: AgentSet,
     checkpointer: BaseCheckpointSaver[Any] | None = None,
     retry: RetryPolicy | None = None,
+    min_confidence: float = MIN_CONFIDENCE,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """Assemble the workflow. Pass a checkpointer to allow pausing for human approval."""
     retry = retry or DEFAULT_RETRY
 
     def supervisor(state: TicketState) -> dict[str, Any]:
-        decision = decide_next(state)
+        decision = decide_next(state, min_confidence)
         return {
             **decision.update,
             "next": decision.next,

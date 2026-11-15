@@ -95,3 +95,30 @@ Conclusions:
   (2) tuning dropout, size or learning rate could help. Neither is verified.
 - Decision for now: the classical TF-IDF + LogReg model remains the best and cheapest intent model. The BiLSTM stays as a
   documented experiment; it is not worth its cost on this evidence. Test splits are still untouched.
+
+### E5 - Does the intent model's confidence tell us when to hand over to a human?
+Run date: 2026-11-15. Model: TF-IDF + LogReg C=10 trained on Bitext (the intents the agents route on).
+Measured on the Bitext VALIDATION split (n=2,427; overall accuracy 0.993). Test splits untouched.
+
+| Confidence | Share of messages | Accuracy | n |
+|---|---|---|---|
+| < 0.2 | 0.0% | 0.000 | 1 |
+| 0.2 - 0.4 | 0.3% | 0.857 | 7 |
+| 0.4 - 0.6 | 0.9% | 0.773 | 22 |
+| 0.6 - 0.8 | 2.5% | 0.918 | 61 |
+| >= 0.8 | 96.3% | 0.998 | 2,336 |
+
+- On in-domain data the model is confident almost always (96% at 0.8 or more, 99.8% accurate), so a threshold rarely
+  fires: at the old 0.4 it escalated 0.3% of messages and caught only 2 of the 17 wrong answers. At 0.6 it would
+  escalate 1.2% (30 messages) of in-domain validation messages.
+- Out-of-domain probe: the 1,000 Banking77 validation messages (banking, not e-commerce, so the model has no valid
+  answer for them): median confidence 0.275; 66.7% fall below 0.4, 83.0% below 0.6, and 17.0% are still answered at
+  0.6 or higher, i.e. confidently wrong. A threshold cannot remove those.
+- Hand-written probes (10 messages, not a benchmark): junk ("hello", "asdf qwerty", "blah blah blah") scores 0.06;
+  "What's the weather like today?" 0.20; "I lost my card and need a new one" 0.41 (just above the old limit, wrongly
+  routed to create_account); "Where is my order? It was supposed to arrive yesterday" went to delivery_period (a policy
+  answer, 0.67) instead of track_order.
+- Decision: the minimum confidence is now the setting `INTENT_MIN_CONFIDENCE`, default 0.6 (was a fixed 0.4):
+  escalating a ticket is cheap and a confident wrong answer is expensive. This is a judgment call from the numbers above,
+  not an optimum. Caveat: the model was trained on synthetic, templated text, so real customers will behave differently;
+  re-measure on real messages when they exist.

@@ -64,6 +64,17 @@ def test_escalation_triggers(overrides: dict[str, Any], reason: str) -> None:
     assert decision.update == {"escalated": True, "escalation_reason": reason}
 
 
+def test_the_confidence_threshold_defaults_to_0_6_and_can_be_changed() -> None:
+    borderline = state(intent_confidence=0.5)
+    assert decide_next(borderline).update["escalation_reason"] == "low_confidence"  # default 0.6
+    assert decide_next(borderline, min_confidence=0.4).next == ORDER
+    assert decide_next(state(intent_confidence=0.6)).next == ORDER  # exactly at the limit passes
+    assert decide_next(state(intent_confidence=0.7), min_confidence=0.9).update == {
+        "escalated": True,
+        "escalation_reason": "low_confidence",
+    }
+
+
 def test_negative_but_not_urgent_is_still_handled_automatically() -> None:
     assert decide_next(state(sentiment="negative", urgency="low")).next == ORDER
 

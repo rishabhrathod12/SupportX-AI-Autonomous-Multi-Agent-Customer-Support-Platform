@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-MIN_CONFIDENCE = 0.4  # below this we do not trust the intent and hand over to a human
+MIN_CONFIDENCE = 0.6  # default: below this we do not trust the intent and hand over to a human
 MAX_STEPS = 12  # loop guard: a ticket that needs more supervisor turns is escalated
 
 END = "__end__"
@@ -59,7 +59,7 @@ def _escalate(reason: str) -> Decision:
     return Decision(RESPOND, {"escalated": True, "escalation_reason": reason})
 
 
-def decide_next(state: Mapping[str, Any]) -> Decision:
+def decide_next(state: Mapping[str, Any], min_confidence: float = MIN_CONFIDENCE) -> Decision:
     """Pick the next step for a ticket. Called after every agent finishes."""
     if state.get("response"):
         return Decision(END)
@@ -73,7 +73,7 @@ def decide_next(state: Mapping[str, Any]) -> Decision:
     if "sentiment" not in state:
         return Decision(SENTIMENT)
 
-    if state.get("intent_confidence", 0.0) < MIN_CONFIDENCE:
+    if state.get("intent_confidence", 0.0) < min_confidence:
         return _escalate("low_confidence")
     if state.get("sentiment") == "negative" and state.get("urgency") == "high":
         return _escalate("urgent_negative")

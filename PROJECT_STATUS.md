@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 7.1 - LangGraph skeleton (complete, uncommitted); awaiting review before the next phase
+Last updated: 2026-11-13 | Current phase: 7.2a - Real components behind the graph (complete, uncommitted); awaiting review
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -128,8 +128,20 @@ Last updated: 2026-11-13 | Current phase: 7.1 - LangGraph skeleton (complete, un
       Bugs found by the tests: (1) an agent that still failed after its retries ended the run with no reply, because
       the error handler must return `Command(goto="supervisor")`; fixed.
 
+- [x] Phase 7.1 committed and pushed (`3d456ba`). Full suite then: 203 passed.
+- [x] Phase 7.2a (real components behind the graph): `supportx.agents.adapters` - the trained intent model
+      (`make_intent_agent`), rule-based refund-reason inference, database-backed order lookup and refund check
+      (`make_database_agents`: the refund agent CREATES the pending request in the database, commits before returning;
+      database trouble becomes `ExternalServiceError`, which the graph retries), and `build_real_agents`.
+      Intent confidence threshold measured (E5 in `docs/EXPERIMENTS.md`) and made a setting,
+      `INTENT_MIN_CONFIDENCE`, default 0.6 (was 0.4). 23 adapter tests (plus supervisor/config updates), 100% coverage of
+      `adapters.py`; ruff and mypy --strict clean. Sentiment is STILL the keyword stub (no sentiment model yet).
+
 ## Pending
-- [ ] Uncommitted: Phase 7.1 code, tests, ARCHITECTURE/status notes (commit/push needs approval)
+- [ ] Uncommitted: Phase 7.2a code, tests, docs (commit/push needs approval)
+- [ ] Phase 7.2b: connect the staff decision to the ticket - one staff action must update the database request AND
+      resume the paused ticket (today the staff refund endpoints only update the database, so the ticket would stay
+      paused); expose tickets through the API; persistent checkpointer so paused tickets survive a restart.
 - [ ] Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
       tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
       passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
@@ -166,9 +178,7 @@ Last updated: 2026-11-13 | Current phase: 7.1 - LangGraph skeleton (complete, un
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 7.2: replace the stubs with the real components, one at a time, each tested - the trained intent model
-(`IntentClassifier`), the order/refund services over the database (`OrderService`, `RefundWorkflow`, with the refund
-request created before the pause and decided by the existing staff endpoints), then expose the ticket graph through
-the API. Phase 6.2 (OpenAI) still needs an API key.
+Phase 7.2b (see Pending): ticket endpoints plus one staff decision that updates the database request and resumes the
+paused ticket, with a persistent checkpointer. Phase 6.2 (OpenAI) still needs an API key.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).
