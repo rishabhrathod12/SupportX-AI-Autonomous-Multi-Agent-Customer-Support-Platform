@@ -10,6 +10,7 @@ from supportx.core.exceptions import ConfigurationError
 
 AppEnv = Literal["development", "testing", "production"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+LogFormat = Literal["text", "json"]
 
 
 class Settings(BaseSettings):
@@ -24,6 +25,7 @@ class Settings(BaseSettings):
 
     app_env: AppEnv = "development"
     log_level: LogLevel = "INFO"
+    log_format: LogFormat = "text"  # "json" = one JSON object per log line
 
     # Secrets use SecretStr so they print as '**********' in logs and repr().
     openai_api_key: SecretStr | None = None

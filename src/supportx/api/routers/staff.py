@@ -22,6 +22,19 @@ def _ticket_service(request: Request) -> TicketService | None:
     return getattr(request.app.state, "tickets", None)
 
 
+@router.get("/model-info")
+def model_info(request: Request) -> dict[str, object]:
+    """Which intent model file and settings are serving (for audits and incident debugging)."""
+    service = _ticket_service(request)
+    settings = request.app.state.settings
+    return {
+        "app_version": request.app.version,
+        "app_env": settings.app_env,
+        "intent_min_confidence": settings.intent_min_confidence,
+        "intent_model": service.model_info if service is not None else None,
+    }
+
+
 @router.get("/refunds/pending", response_model=list[RefundRequestOut])
 def list_pending(session: SessionDep) -> list[RefundRequestOut]:
     return [RefundRequestOut.from_model(r) for r in RefundRepository(session).list_pending()]

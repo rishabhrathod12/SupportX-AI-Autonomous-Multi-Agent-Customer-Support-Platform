@@ -29,6 +29,7 @@ from supportx.core import (
     WorkflowError,
     get_logger,
 )
+from supportx.core.model_info import ModelInfo, describe_model_file
 from supportx.db import RefundStatus, Ticket, TicketStatus, session_scope
 from supportx.db.repositories import RefundRepository, TicketRepository, to_utc
 from supportx.ml import IntentClassifier
@@ -72,9 +73,10 @@ def _view(ticket: Ticket) -> TicketView:
 
 
 class TicketService:
-    def __init__(self, engine: Engine, graph: Graph):
+    def __init__(self, engine: Engine, graph: Graph, model_info: ModelInfo | None = None):
         self._engine = engine
         self._graph = graph
+        self.model_info = model_info  # which intent model file this service runs (None in tests)
 
     # ------------------------------------------------------------------ customer side
     def submit(
@@ -223,10 +225,17 @@ def build_ticket_service(
     if not docs_dir.is_dir():
         raise ConfigurationError(f"Policy documents folder not found: {docs_dir}")
 
+    info = describe_model_file(model_path)
+    logger.info(
+        "Loading intent model %s sha256=%s modified=%s",
+        info["file"],
+        info["sha256"][:12],
+        info["modified_utc"],
+    )
     intent_model = IntentClassifier.load(model_path)  # pickle: only load files you created
     retriever = Retriever.from_documents(docs_dir)
     connection = sqlite3.connect(settings.checkpoint_db_path, check_same_thread=False)
     saver = SqliteSaver(connection)
     agents = build_real_agents(intent_model, retriever, engine, policy)
     graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
-    return TicketService(engine, graph), connection
+    return TicketService(engine, graph, info), connection

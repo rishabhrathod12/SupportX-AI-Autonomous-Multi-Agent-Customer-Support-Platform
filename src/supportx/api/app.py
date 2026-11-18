@@ -14,6 +14,7 @@ from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 
 from supportx.agents.tickets import TicketService, build_ticket_service
+from supportx.api.middleware import add_request_logging
 from supportx.api.routers import customer, health, staff
 from supportx.api.routers import tickets as tickets_router
 from supportx.core import (
@@ -46,7 +47,7 @@ def create_app(
     """Build the app. Tests pass their own settings, engine and ticket service; production
     passes nothing and everything is built from the settings at start-up."""
     settings = settings or get_settings()
-    setup_logging(settings.log_level)
+    setup_logging(settings.log_level, settings.log_format)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -84,6 +85,7 @@ def create_app(
     if engine is not None:  # tests may not run the lifespan, so wire the session factory now
         app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
 
+    add_request_logging(app)
     app.include_router(health.router)
     app.include_router(customer.router)
     app.include_router(tickets_router.router)

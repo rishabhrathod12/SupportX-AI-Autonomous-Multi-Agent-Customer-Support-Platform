@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 9.2 Alembic migrations (done, uncommitted); Docker files untested
+Last updated: 2026-11-13 | Current phase: 9.3 observability (done, committed locally); evaluation report still to write; Docker files untested
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -157,6 +157,11 @@ Last updated: 2026-11-13 | Current phase: 9.2 Alembic migrations (done, uncommit
 - [x] Phase 9.2: Alembic (`alembic.ini`, `migrations/env.py` reads DATABASE_URL, `0001_initial_schema`).
       `tests/unit/test_migrations.py` upgrades to head on SQLite, checks there is no drift from the models, downgrades.
       The API container runs `alembic upgrade head` at start. The migration has NOT been run on PostgreSQL.
+- [x] Phase 9.3 (observability): request id on every log line (`X-Request-ID`, reused only if it matches a safe pattern),
+      access log of method/path/status/duration with NO query string, headers or bodies, `LOG_FORMAT=json` option,
+      intent-model fingerprint (file, SHA-256, size, mtime) logged at startup and served by staff-only
+      `GET /staff/model-info`. 8 new tests; ruff and mypy --strict clean. The full suite was NOT re-run after 9.3
+      (74 related tests passed). Not done: metrics endpoint, tracing, per-ticket decision logging.
 - [ ] Paused tickets now persist in SQLite; several server processes would need a PostgreSQL saver.
 - [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
 - [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
