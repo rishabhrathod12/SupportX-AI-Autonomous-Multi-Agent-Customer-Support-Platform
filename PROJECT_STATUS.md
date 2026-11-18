@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 7.2b committed; Phase 9.1 (Docker files, untested) in progress
+Last updated: 2026-11-13 | Current phase: 9.2 Alembic migrations (done, uncommitted); Docker files untested
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -151,6 +151,12 @@ Last updated: 2026-11-13 | Current phase: 7.2b committed; Phase 9.1 (Docker file
       tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
       passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
       should see several passages; a semantic embedding model should help.
+- [x] Phase 9.1 (committed `f936582`): `requirements-api.txt` (no TensorFlow/MLflow; verified the API import path loads
+      none of them), `docker/Dockerfile.api` (non-root, healthcheck, models mounted not baked in), `docker-compose.yml`
+      (PostgreSQL 16, API, optional MLflow profile). NEVER BUILT OR RUN: Docker is not installed here.
+- [x] Phase 9.2: Alembic (`alembic.ini`, `migrations/env.py` reads DATABASE_URL, `0001_initial_schema`).
+      `tests/unit/test_migrations.py` upgrades to head on SQLite, checks there is no drift from the models, downgrades.
+      The API container runs `alembic upgrade head` at start. The migration has NOT been run on PostgreSQL.
 - [ ] Paused tickets now persist in SQLite; several server processes would need a PostgreSQL saver.
 - [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
 - [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
@@ -158,7 +164,7 @@ Last updated: 2026-11-13 | Current phase: 7.2b committed; Phase 9.1 (Docker file
       OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a
       newer major version than I know well, so the wrapper must be checked against the installed SDK before use.
 - [ ] API limits before production: one shared staff key (approver name is self-declared), customers identified only
-      by order number + email, no rate limiting, no HTTPS, no Alembic migrations, no PostgreSQL run.
+      by order number + email, no rate limiting, no HTTPS, no PostgreSQL run.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
       NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
 - [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an

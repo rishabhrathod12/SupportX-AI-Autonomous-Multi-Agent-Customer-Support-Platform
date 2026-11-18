@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements-api.txt
 # Code and the small demo policy documents. Trained models are NOT in the image
 # (git-ignored, large): mount them at /app/artifacts/models (see docker-compose.yml).
 COPY src ./src
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
 COPY data/sample/policies ./data/sample/policies
 
 # Run as a non-root user; /app/state holds the paused-ticket (checkpoint) database.

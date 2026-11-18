@@ -27,9 +27,13 @@ services:
       DATABASE_URL: postgresql+psycopg://supportx:${POSTGRES_PASSWORD}@db:5432/supportx
       STAFF_API_KEY: ${STAFF_API_KEY:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # The container defaults to APP_ENV=production, which does NOT create tables
-      # (no Alembic migrations exist yet). For a first local run set APP_ENV=development in .env.
+      # Tables come from Alembic migrations (run at container start), not from the app.
       APP_ENV: ${APP_ENV:-production}
+    # Apply migrations, then start the server (fine for one API container; with several,
+    # run `alembic upgrade head` as a separate one-off step instead).
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn supportx.api.app:create_app --factory --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     volumes:
