@@ -145,8 +145,14 @@ Last updated: 2026-11-13 | Current phase: intent data improvement (E7) done, unc
       `/tickets/status`, `/staff/tickets/awaiting`, `/staff/tickets/{id}/decision`), old refund endpoints now resume
       the waiting ticket. 19 service tests + 15 API tests pass; verified on a real server across a real restart.
 - [x] 7.2b committed after the full run (261 passed in ~21 min, 2026-11-18).
-- [ ] MODEL QUALITY: with the real synthetic-trained intent model, "Where is my order ORD-5001?" escalates
-      (correct intent, confidence 0.26). See `docs/EXPERIMENTS.md` E5b. Needs better data, not threshold tweaks.
+- [x] MODEL QUALITY (E7, 2026-11-18): real order numbers map to the dataset's order-number token (`clean_text`);
+      hand-written realistic phrasings (`supportx.data.augment`, `train_intent --augment 120`) added to training; frozen
+      probe set `data/sample/intent_probe.csv` (dev/holdout). Holdout (scored once): 75% of in-scope probes handled
+      automatically vs 47% before; confidently wrong 3 vs 5. New serving default `intent_tfidf_lr_bitext_aug.joblib`.
+      Caveats: same author wrote phrasings and probes (optimistic); the augmented model's Bitext TEST was not scored; the
+      full suite was not re-run after E7 (related tests passed).
+- [ ] MODEL QUALITY, still open: needs REAL customer messages. A policy question ("refund after 30 days?") can still be
+      routed as a refund request, and one tracking phrasing ("tracking update for order ORD-...") still escalates.
 - [ ] Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
       tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
       passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
