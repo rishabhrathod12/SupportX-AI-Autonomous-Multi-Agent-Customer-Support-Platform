@@ -67,8 +67,11 @@ def compose_reply(state: TicketState) -> str:
 
     passages = state.get("passages")
     if passages:
-        top = passages[0]
-        return f"According to our {top['source']} ({top['heading']}): {top['text']}"
+        first, *others = passages
+        reply = f"According to our {first['source']} ({first['heading']}): {first['text']}"
+        for extra in others:  # the runner-up, when it scored nearly as well
+            reply += f"\n\nAlso relevant ({extra['source']}, {extra['heading']}): {extra['text']}"
+        return reply
 
     return HANDOFF  # nothing we can say with confidence
 

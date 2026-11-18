@@ -184,3 +184,31 @@ scored once at the end. Metric (`supportx.ml.probe_eval`, threshold 0.6): *usefu
   (`artifacts/models/intent_tfidf_lr_bitext_aug.joblib`, reference file kept).
 - End-to-end with the real model and a seeded order: "Where is my order ORD-5001?" is now answered (was escalated,
   E5b); "Could you give me a tracking update for order ORD-5001 please" still escalates (low confidence).
+
+### E8 - Retrieval: stemming, heading weight, and quoting a close runner-up (hand-written questions)
+Run date: 2026-11-18. Motivation: the live demo answered "What is your return policy?" with the "Changed your mind"
+passage, and E5b/the 6.1 check showed 'cancel' not matching 'cancelling'. Questions: `data/sample/retrieval_eval.csv`
+(32 hand-written, committed BEFORE any change): `dev` 20 for decisions, `holdout` 12 scored once. Each has one right
+section (file + heading). Scorer: `python -m supportx.rag.evaluate`. Retriever is still the LEXICAL TF-IDF one.
+
+Dev (n=20; one question = 5 points, so differences of 1-2 questions are noise):
+
+| Variant | top-1 | top-3 |
+|---|---|---|
+| Baseline (1.0x heading, no stemming) | 0.75 | 0.90 |
+| + stemming (`light_stem`) | 0.80 | 0.85 |
+| + stop-word removal | 0.55 | 0.90 |
+| stemming + stop words | 0.60 | 0.90 |
+| stemming + heading repeated 2x **chosen** | 0.80 | 0.95 |
+| stemming + heading 3x / 4x | 0.75 | 0.95 / 0.90 |
+
+- Stop-word removal HURT (words like "can", "after", "not" carry meaning in 16 tiny passages), so it stays off.
+- Reply change: the Knowledge Agent returns the best passage plus the runner-up when it scores at least half as high
+  (`Retriever.retrieve_for_answer`), and the reply quotes both. On dev the right section is shown 85% of the time
+  (top-1 alone: 80%), with 1.5 passages quoted on average. Cutoffs 0.3-0.5 gave the same coverage; 0.5 kept.
+- Holdout (n=12, scored once), right section SHOWN to the customer: old configuration 0.58 (top-1 0.50) -> new 0.83
+  (top-1 0.67). With 12 questions one standard error is about 11 points, so treat this as "better", not a size.
+- Not fixed: "I want to cancel an order that is already on its way" and "I put the wrong address. Can it still be fixed?"
+  still retrieve the wrong passage (lexical matching cannot connect "on its way" to "shipped"); "answered" is 100%
+  because the 0.1 minimum score never rejected any of these on-topic questions (no off-topic questions were scored here;
+  a gibberish query is rejected, see tests). A semantic embedding model is the real fix (needs an API key or PyTorch).

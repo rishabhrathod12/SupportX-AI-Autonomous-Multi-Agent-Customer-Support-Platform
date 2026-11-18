@@ -153,7 +153,9 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       full suite was not re-run after E7 (related tests passed).
 - [ ] MODEL QUALITY, still open: needs REAL customer messages. A policy question ("refund after 30 days?") can still be
       routed as a refund request, and one tracking phrasing ("tracking update for order ORD-...") still escalates.
-- [ ] Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
+- [x] Retrieval (E8, 2026-11-18): stemming + doubled heading weight + reply quotes a close runner-up. Holdout: right section
+      shown 83% (was 58%, n=12). Still lexical; a semantic embedder is the real fix. Full suite 294 passed.
+- [ ] (superseded by E8, kept for history) Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
       tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
       passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
       should see several passages; a semantic embedding model should help.

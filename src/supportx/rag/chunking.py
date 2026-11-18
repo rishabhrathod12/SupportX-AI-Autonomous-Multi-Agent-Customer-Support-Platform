@@ -16,6 +16,13 @@ class Chunk:
     heading: str
     text: str
 
+    def embedding_text_with(self, heading_repeat: int = 1) -> str:
+        """Heading repeated `heading_repeat` times, then the text: the heading says what a passage
+        is ABOUT, so matching it deserves extra weight."""
+        if not self.heading:
+            return self.text
+        return "\n".join([self.heading] * heading_repeat + [self.text])
+
     @property
     def embedding_text(self) -> str:
         """What gets embedded: the heading gives the chunk context (a lone 'Yes' means nothing)."""

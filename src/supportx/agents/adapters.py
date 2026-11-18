@@ -126,7 +126,7 @@ def build_real_agents(
                 "text": hit.chunk.text,
                 "score": round(hit.score, 4),
             }
-            for hit in retriever.retrieve(question, k=3, min_score=min_score)
+            for hit in retriever.retrieve_for_answer(question, min_score=min_score)
         ]
 
     return AgentSet(

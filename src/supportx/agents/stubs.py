@@ -66,7 +66,7 @@ def make_stub_agents(
                 "text": hit.chunk.text,
                 "score": round(hit.score, 4),
             }
-            for hit in retriever.retrieve(question, k=3, min_score=0.1)
+            for hit in retriever.retrieve_for_answer(question, min_score=0.1)
         ]
 
     def lookup_order(order_number: str, email: str) -> dict[str, Any]:

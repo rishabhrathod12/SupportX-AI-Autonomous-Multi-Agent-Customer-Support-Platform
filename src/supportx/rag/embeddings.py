@@ -5,10 +5,26 @@ from collections.abc import Sequence
 from typing import Protocol, Self
 
 import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS, TfidfVectorizer
 
 from supportx.core import ModelError
 from supportx.nlp import tokenize
+
+
+def light_stem(word: str) -> str:
+    """Tiny suffix stripper so 'cancel', 'cancelling' and 'cancelled' match ("returns" = "return").
+
+    Deliberately crude (no dictionary, no extra dependency); placeholders like <url> are left alone.
+    """
+    if word.startswith("<") or len(word) <= 3:
+        return word
+    for suffix in ("ing", "ed", "es", "s", "ly"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            word = word[: -len(suffix)]
+            break
+    if len(word) > 3 and word[-1] == word[-2] and word[-1] not in "aeiou":
+        word = word[:-1]  # cancell -> cancel, shipp -> ship
+    return word
 
 
 class Embedder(Protocol):
@@ -28,9 +44,15 @@ class TfidfEmbedder:
     Fit it on the document chunks before use.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, stem: bool = False, drop_stop_words: bool = False) -> None:
+        def analyze(text: str) -> list[str]:
+            words = tokenize(text)
+            if drop_stop_words:
+                words = [w for w in words if w not in ENGLISH_STOP_WORDS]
+            return [light_stem(w) for w in words] if stem else words
+
         self._vectorizer = TfidfVectorizer(
-            tokenizer=tokenize,
+            tokenizer=analyze,
             lowercase=False,
             token_pattern=None,
             ngram_range=(1, 2),

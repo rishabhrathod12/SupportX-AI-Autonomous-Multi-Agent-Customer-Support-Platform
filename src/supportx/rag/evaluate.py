@@ -1,7 +1,8 @@
 """Score the retriever on hand-written questions (`data/sample/retrieval_eval.csv`).
 
 For each question the right answer is one policy section (file + heading). Reported:
-  top1 / top3   the right section is ranked first / among the first three
+  top1 / top2 / top3   the right section is ranked first / in the first two / in the first three
+  shown_ok      the right section is among the passages a reply would quote (best + close runner-up)
   answered      the best passage scored at least `min_score` (the production cutoff)
   answered_ok   answered AND the best passage is the right section (what the customer would read)
 
@@ -23,7 +24,7 @@ POLICY_DIR = Path("data/sample/policies")
 def score_retrieval(
     retriever: Retriever, rows: pd.DataFrame, min_score: float = 0.1
 ) -> dict[str, Any]:
-    top1 = top3 = answered = answered_ok = 0
+    top1 = top2 = top3 = answered = answered_ok = shown_ok = 0
     misses: list[tuple[str, str, float]] = []
     for question, source, section in zip(
         rows["question"], rows["source"], rows["section"], strict=True
@@ -35,6 +36,8 @@ def score_retrieval(
 
         first_ok = bool(hits) and right(hits[0])
         top1 += first_ok
+        top2 += any(right(h) for h in hits[:2])
+        shown_ok += any(right(h) for h in retriever.retrieve_for_answer(question, min_score))
         top3 += any(right(h) for h in hits)
         if hits and hits[0].score >= min_score:
             answered += 1
@@ -51,6 +54,8 @@ def score_retrieval(
     return {
         "n": n,
         "top1": top1 / n,
+        "top2": top2 / n,
+        "shown_ok": shown_ok / n,
         "top3": top3 / n,
         "answered": answered / n,
         "answered_ok": answered_ok / n,

@@ -201,16 +201,29 @@ def test_the_right_document_is_in_the_top_three(
     assert top == sorted(top, key=lambda r: r.score, reverse=True)
 
 
-def test_top_one_baseline_and_its_known_miss(retriever: Retriever) -> None:
-    """Measured baseline of the lexical embedder on the questions above: top-1 is right for 5 of 6.
-
-    The miss is 'Can I cancel my order after it has shipped?': the shipping policy ranks first
-    (it shares 'order has shipped') and the right cancellation passage ranks second, because
-    'cancel' does not match 'cancelling'/'cancelled' (no stemming). A semantic embedding model
-    should fix this; if this test starts failing because the number IMPROVED, update the baseline.
-    """
+def test_top_one_is_right_for_all_six_questions_with_stemming(retriever: Retriever) -> None:
+    """The first baseline missed 'Can I cancel my order after it has shipped?' because 'cancel' did
+    not match 'cancelling'/'cancelled'. Light stemming (default now) fixed that miss. Six questions
+    cannot measure real quality: see supportx.rag.evaluate for the larger hand-written set."""
     misses = [q for q, source in QUESTIONS if retriever.retrieve(q, k=1)[0].chunk.source != source]
-    assert misses == ["Can I cancel my order after it has shipped?"]
+    assert misses == []
+
+
+def test_stemming_matches_word_forms_and_leaves_placeholders() -> None:
+    from supportx.rag.embeddings import light_stem
+
+    assert light_stem("cancelling") == light_stem("cancelled") == light_stem("cancel")
+    assert light_stem("returns") == light_stem("return")
+    assert light_stem("<order_number>") == "<order_number>"
+    assert light_stem("is") == "is"
+
+
+def test_the_answer_passages_include_a_close_runner_up_only(retriever: Retriever) -> None:
+    question = "What is your return policy?"
+    shown = retriever.retrieve_for_answer(question)
+    assert 1 <= len(shown) <= 2
+    assert shown[0].score >= shown[-1].score >= shown[0].score * 0.5
+    assert retriever.retrieve_for_answer("zebra giraffe quantum") == []
 
 
 def test_a_question_unrelated_to_the_documents_finds_nothing(retriever: Retriever) -> None:

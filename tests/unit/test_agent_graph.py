@@ -86,11 +86,15 @@ def test_replies_only_quote_retrieved_passages_even_when_retrieval_is_ambiguous(
     question = "What is your return policy? How many days do I have?"
     outcome = start_ticket(graph, "t1b", question)
     assert outcome.status == "completed"
-    top = outcome.state["passages"][0]
-    assert (
-        outcome.state["response"]
-        == f"According to our {top['source']} ({top['heading']}): {top['text']}"
+    passages = outcome.state["passages"]
+    assert 1 <= len(passages) <= 2
+    reply = outcome.state["response"]
+    assert reply.startswith(
+        f"According to our {passages[0]['source']} ({passages[0]['heading']}): "
+        f"{passages[0]['text']}"
     )
+    assert all(p["text"] in reply for p in passages)  # built from retrieved text only
+    assert reply.count("Also relevant") == len(passages) - 1
 
 
 def test_order_tracking_uses_only_order_facts(
