@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from supportx.agents.tickets import TicketService, build_ticket_service
 from supportx.api.middleware import add_request_logging
-from supportx.api.routers import customer, health, staff
+from supportx.api.routers import customer, demo, health, staff
 from supportx.api.routers import tickets as tickets_router
 from supportx.core import (
     ConfigurationError,
@@ -90,6 +90,8 @@ def create_app(
     app.include_router(customer.router)
     app.include_router(tickets_router.router)
     app.include_router(staff.router)
+    if settings.app_env != "production":
+        app.include_router(demo.router)  # local trial page; not exposed in production
 
     @app.exception_handler(NotFoundError)
     async def not_found(_: Request, exc: NotFoundError) -> JSONResponse:

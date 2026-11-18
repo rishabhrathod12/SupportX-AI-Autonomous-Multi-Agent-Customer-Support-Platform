@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SupportX Demo</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dde1e6;
+    --accent: #2457d6; --accent-text: #ffffff; --ok: #1a7f4b; --warn: #a45a00; --bad: #b3261e;
+    --bubble-me: #e6edff; --bubble-bot: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171b; --card: #1c2025; --text: #e8eaed; --muted: #9aa3af; --line: #2c323a;
+      --accent: #6d94ff; --accent-text: #0d1117; --ok: #4cc38a; --warn: #f0a24b; --bad: #ff7b72;
+      --bubble-me: #26324f; --bubble-bot: #262b31;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 16px; max-width: 1100px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { display: grid; gap: 16px; padding: 0 16px 32px; max-width: 1100px; margin: 0 auto;
+         grid-template-columns: 1fr; }
+  @media (min-width: 860px) { main { grid-template-columns: 1fr 1fr; } }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  h2 { margin: 0 0 12px; font-size: 16px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  input, textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+                    background: var(--bg); color: var(--text); font: inherit; }
+  textarea { min-height: 70px; resize: vertical; }
+  button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent);
+           color: var(--accent-text); font: inherit; cursor: pointer; }
+  button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  button.danger { background: var(--bad); color: #fff; }
+  button:disabled { opacity: .55; cursor: default; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: transparent;
+          color: var(--muted); border: 1px solid var(--line); cursor: pointer; }
+  .log { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .bubble { padding: 8px 12px; border-radius: 10px; max-width: 92%; white-space: pre-wrap; word-break: break-word; }
+  .me { background: var(--bubble-me); align-self: flex-end; }
+  .bot { background: var(--bubble-bot); align-self: flex-start; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); margin-right: 6px; }
+  .tag.ok { color: var(--ok); } .tag.warn { color: var(--warn); } .tag.bad { color: var(--bad); }
+  .ticket { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .ticket .meta { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .msg { color: var(--bad); margin-top: 8px; min-height: 1.2em; font-size: 13px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SupportX AI &mdash; local demo</h1>
+  <p>Development only (this page is not served in production). Demo customer: <code>demo@example.com</code>;
+     orders ORD-1001 (refundable), ORD-2002 (too old), ORD-3003 (cancellable), ORD-4004 (shipped).</p>
+</header>
+<main>
+  <section id="customer">
+    <h2>Customer</h2>
+    <label for="email">Email</label>
+    <input id="email" value="demo@example.com" autocomplete="off">
+    <label for="text">Message</label>
+    <textarea id="text" placeholder="e.g. Where is my order ORD-4004?"></textarea>
+    <div class="chips" id="chips"></div>
+    <div class="row"><button id="send">Send</button></div>
+    <div class="msg" id="cust-msg" role="status"></div>
+    <div class="log" id="log" aria-live="polite"></div>
+  </section>
+
+  <section id="staff">
+    <h2>Staff approvals</h2>
+    <p class="hint">Refunds and cancellations wait here for a person to decide.</p>
+    <label for="key">Staff API key</label>
+    <input id="key" type="password" value="" placeholder="X-API-Key" autocomplete="off">
+    <label for="who">Your name (recorded as the approver)</label>
+    <input id="who" value="agent.demo" autocomplete="off">
+    <div class="row"><button id="refresh" class="secondary">Refresh waiting tickets</button></div>
+    <div class="msg" id="staff-msg" role="status"></div>
+    <div id="waiting"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const EXAMPLES = [
+  "Where is my order ORD-4004?",
+  "My kettle arrived broken and I want a refund. Order ORD-1001",
+  "Please cancel my order ORD-3003",
+  "I want a refund for ORD-2002",
+  "Please cancel my order ORD-4004",
+  "What is your return policy?",
+  "I want to speak to a real person",
+];
+
+function bubble(kind, text, tag) {
+  const div = document.createElement("div");
+  div.className = "bubble " + kind;
+  if (tag) {
+    const span = document.createElement("span");
+    span.className = "tag " + (tag.cls || "");
+    span.textContent = tag.text;
+    div.appendChild(span);
+  }
+  div.appendChild(document.createTextNode(text));
+  $("log").appendChild(div);
+  div.scrollIntoView({ block: "nearest" });
+}
+
+async function api(path, options) {
+  const res = await fetch(path, options);
+  let body = null;
+  try { body = await res.json(); } catch (_) { /* no JSON body */ }
+  if (!res.ok) {
+    let detail = body && body.detail;
+    if (Array.isArray(detail)) detail = detail.map((d) => d.msg).join("; ");
+    throw new Error((detail || res.statusText) + " (" + res.status + ")");
+  }
+  return body;
+}
+
+EXAMPLES.forEach((example) => {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "chip";
+  chip.textContent = example;
+  chip.addEventListener("click", () => { $("text").value = example; $("text").focus(); });
+  $("chips").appendChild(chip);
+});
+
+$("send").addEventListener("click", async () => {
+  const message = $("text").value.trim();
+  if (!message) { $("cust-msg").textContent = "Type a message first."; return; }
+  $("cust-msg").textContent = "";
+  $("send").disabled = true;
+  bubble("me", message);
+  try {
+    const email = $("email").value.trim();
+    const reply = await api("/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, customer_email: email || null }),
+    });
+    const waiting = reply.status === "awaiting_approval";
+    bubble("bot", reply.message, { text: waiting ? "waiting for staff" : "answered", cls: waiting ? "warn" : "ok" });
+    $("text").value = "";
+    if (waiting) { loadWaiting(true); }
+  } catch (err) {
+    $("cust-msg").textContent = err.message;
+  } finally {
+    $("send").disabled = false;
+  }
+});
+
+function renderWaiting(tickets) {
+  const box = $("waiting");
+  box.replaceChildren();
+  if (!tickets.length) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "No tickets are waiting.";
+    box.appendChild(p);
+    return;
+  }
+  tickets.forEach((t) => {
+    const card = document.createElement("div");
+    card.className = "ticket";
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const money = t.amount_cents != null ? " · " + (t.amount_cents / 100).toFixed(2) : "";
+    meta.textContent = (t.approval_kind || "decision") + money + " · ticket " + t.ticket_id.slice(0, 8);
+    card.appendChild(meta);
+    const row = document.createElement("div");
+    row.className = "row";
+    const approve = document.createElement("button");
+    approve.textContent = "Approve";
+    const reject = document.createElement("button");
+    reject.textContent = "Reject…";
+    reject.className = "danger";
+    approve.addEventListener("click", () => decide(t.ticket_id, true, null));
+    reject.addEventListener("click", () => {
+      const note = window.prompt("Reason for rejecting (shown to the customer):");
+      if (note && note.trim()) decide(t.ticket_id, false, note.trim());
+    });
+    row.append(approve, reject);
+    card.appendChild(row);
+    box.appendChild(card);
+  });
+}
+
+async function loadWaiting(quiet) {
+  const key = $("key").value;
+  if (!key) { if (!quiet) $("staff-msg").textContent = "Enter the staff API key."; return; }
+  $("staff-msg").textContent = "";
+  try {
+    renderWaiting(await api("/staff/tickets/awaiting", { headers: { "X-API-Key": key } }));
+  } catch (err) {
+    $("staff-msg").textContent = err.message;
+  }
+}
+
+async function decide(ticketId, approved, note) {
+  const approver = $("who").value.trim() || "agent.demo";
+  try {
+    const done = await api("/staff/tickets/" + encodeURIComponent(ticketId) + "/decision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": $("key").value },
+      body: JSON.stringify({ approved, approver, note }),
+    });
+    bubble("bot", done.response || "(no reply)", { text: approved ? "approved" : "rejected", cls: approved ? "ok" : "bad" });
+    $("staff-msg").textContent = "";
+  } catch (err) {
+    $("staff-msg").textContent = err.message;
+  }
+  loadWaiting(true);
+}
+
+$("refresh").addEventListener("click", () => loadWaiting(false));
+</script>
+</body>
+</html>

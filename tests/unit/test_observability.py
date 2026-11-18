@@ -93,3 +93,10 @@ def test_staff_model_info_needs_key_and_reports_no_model_when_disabled() -> None
     body = client.get("/staff/model-info", headers=STAFF).json()
     assert body["intent_model"] is None
     assert body["app_env"] == "development"
+
+
+def test_demo_page_is_served_in_development_but_not_in_production() -> None:
+    page = _client(app_env="development").get("/demo")
+    assert page.status_code == 200 and "SupportX AI" in page.text
+    assert "text/html" in page.headers["content-type"]
+    assert _client(app_env="production").get("/demo").status_code == 404
