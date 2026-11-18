@@ -1,0 +1,132 @@
+split,intent,text
+dev,track_order,Where is my order ORD-5001?
+dev,track_order,Hi! Can you tell me where my parcel is? Order number ORD-4417.
+dev,track_order,my package still hasnt shown up any update on ORD-2210
+dev,track_order,Could you give me a tracking update for order ORD-3098 please
+dev,track_order,What's the status of my order?
+dev,track_order,I ordered a week ago and want to know where it is right now ORD-7712
+dev,track_order,track ORD-1189
+dev,track_order,Has my order ORD-6050 been dispatched yet?
+dev,get_refund,My kettle arrived broken and I want my money back for order ORD-5001
+dev,get_refund,I'd like a refund for ORD-3345 please
+dev,get_refund,the headphones I got are faulty. refund me
+dev,get_refund,Can I return this and get my money back? ORD-8120
+dev,get_refund,Wrong size jumper sent. I want a refund on order ORD-2299.
+dev,get_refund,please refund my purchase I changed my mind ORD-4002
+dev,get_refund,I never received my order ORD-9001 and want my money returned
+dev,get_refund,give me a refund for the damaged lamp
+dev,cancel_order,Please cancel my order ORD-5120
+dev,cancel_order,I need to cancel ORD-3077 before it ships
+dev,cancel_order,ordered by mistake - can you cancel it? ORD-6611
+dev,cancel_order,cancel order ORD-1400
+dev,cancel_order,I want to cancel my last order please
+dev,cancel_order,Hi there I placed ORD-2750 an hour ago and I no longer need it. Can you cancel?
+dev,cancel_order,Would it be possible to stop my order ORD-9420 from being sent?
+dev,cancel_order,cancelling ORD-3333 thanks
+dev,check_refund_policy,What is your return policy?
+dev,check_refund_policy,How many days do I have to return an item?
+dev,check_refund_policy,Do you offer refunds on sale items?
+dev,check_refund_policy,Under what conditions can I get my money back?
+dev,check_refund_policy,Can you explain how refunds work?
+dev,check_refund_policy,is there a time limit for returning products
+dev,check_refund_policy,Before I buy: what's your refund policy?
+dev,check_refund_policy,Tell me about returns
+dev,delivery_period,How long does delivery usually take?
+dev,delivery_period,How many days until an order arrives?
+dev,delivery_period,What is the typical shipping time?
+dev,delivery_period,when can I expect my order to be delivered if I buy today
+dev,delivery_period,How fast do you ship?
+dev,delivery_period,Do you deliver within 3 days?
+dev,delivery_period,what's the delivery time to the UK
+dev,delivery_period,How long will shipping take for a new order?
+dev,track_refund,Has my refund for ORD-5001 been processed yet?
+dev,track_refund,Where is the money for my returned order ORD-3345?
+dev,track_refund,I sent my item back two weeks ago. When will I get the refund?
+dev,track_refund,status of my refund please
+dev,track_refund,Still waiting for my refund on ORD-7001
+dev,track_refund,did you receive my return and refund me yet
+dev,track_refund,How long until the refund shows up in my account?
+dev,track_refund,checking on the refund for order ORD-2468
+dev,complaint,This is unacceptable. Your service is terrible and I want to complain.
+dev,complaint,I'm really unhappy with how I was treated by your staff
+dev,complaint,I want to file a complaint about my delivery experience
+dev,complaint,Worst customer service ever. I am furious.
+dev,complaint,I have a complaint about a rude agent
+dev,complaint,your company keeps messing up my orders and I am fed up
+dev,complaint,I'd like to make a formal complaint
+dev,complaint,Very disappointed with the whole experience and want to complain
+dev,contact_human_agent,I want to speak to a real person
+dev,contact_human_agent,Can I talk to a human please?
+dev,contact_human_agent,get me an agent
+dev,contact_human_agent,I'd rather not talk to a bot. Connect me to a person.
+dev,contact_human_agent,Is there a live agent I can chat with?
+dev,contact_human_agent,transfer me to a human
+dev,contact_human_agent,let me speak with someone on your team
+dev,contact_human_agent,human agent please
+dev,payment_issue,My card was charged twice for the same order
+dev,payment_issue,Payment failed but the money left my account
+dev,payment_issue,I keep getting an error when I try to pay
+dev,payment_issue,why was I charged more than the price shown
+dev,payment_issue,my payment isn't going through
+dev,payment_issue,there is a wrong charge on my credit card from you
+dev,payment_issue,The checkout says my card was declined but it's fine
+dev,payment_issue,I paid twice by accident
+dev,change_shipping_address,I need to change the delivery address on my order
+dev,change_shipping_address,I moved house. Can I update the shipping address?
+dev,change_shipping_address,Please send my order to a different address
+dev,change_shipping_address,wrong address on ORD-4100 how do I fix it
+dev,change_shipping_address,Can I edit my shipping address before it ships?
+dev,change_shipping_address,I entered the wrong postcode
+dev,change_shipping_address,update my address to 12 Baker Street
+dev,change_shipping_address,need to redirect my parcel to my office
+dev,OOS,What's the weather like today?
+dev,OOS,asdf qwerty
+dev,OOS,hello
+dev,OOS,Can you recommend a good pizza place?
+dev,OOS,I lost my debit card and need a new one
+dev,OOS,What is 17 times 23?
+dev,OOS,blah blah blah
+dev,OOS,Who won the football last night?
+dev,OOS,how do I reset my bank PIN
+dev,OOS,tell me a joke
+holdout,track_order,Any news on where ORD-8888 has got to?
+holdout,track_order,I would like to follow my delivery. It's order ORD-1234.
+holdout,track_order,Where's my stuff? Ordered on Monday.
+holdout,track_order,can you check on my order ORD-5555 for me
+holdout,get_refund,I want to send this back and get a refund. Order ORD-6001
+holdout,get_refund,The jacket doesn't fit and I want my money back
+holdout,get_refund,item arrived smashed. Refund please! ORD-7345
+holdout,get_refund,I would like to be reimbursed for ORD-2020
+holdout,cancel_order,please stop order ORD-3131 and cancel it
+holdout,cancel_order,I don't want my order anymore. Cancel ORD-8080.
+holdout,cancel_order,"Hello, how can I cancel the order I just placed?"
+holdout,cancel_order,cancel my purchase ORD-6767 asap
+holdout,check_refund_policy,What are the rules for returning something?
+holdout,check_refund_policy,Can I get a refund after 30 days?
+holdout,check_refund_policy,how does your money-back guarantee work
+holdout,check_refund_policy,Are returns free?
+holdout,delivery_period,How long does it take for my parcel to get here?
+holdout,delivery_period,what are your delivery times
+holdout,delivery_period,How many working days does shipping take?
+holdout,delivery_period,When will an order placed today arrive?
+holdout,track_refund,Where's my refund for ORD-5252?
+holdout,track_refund,I returned the shoes last week. Have you refunded me?
+holdout,track_refund,when do I get my money back for the return I already sent
+holdout,track_refund,refund status ORD-9191
+holdout,complaint,I am extremely dissatisfied and want to raise a complaint
+holdout,complaint,Terrible service. I want to complain about my experience.
+holdout,complaint,this is a disgrace and I'm making a complaint
+holdout,contact_human_agent,Can I speak to someone? I need a person.
+holdout,contact_human_agent,Please put me through to an agent
+holdout,contact_human_agent,I don't want automated help. Human please.
+holdout,payment_issue,I was billed twice
+holdout,payment_issue,my card keeps getting declined on your site
+holdout,payment_issue,Payment went through but no order confirmation
+holdout,change_shipping_address,Can you change where my parcel is being delivered?
+holdout,change_shipping_address,I gave the wrong delivery address
+holdout,change_shipping_address,Please update my shipping details to a new address
+holdout,OOS,What time does the cinema open?
+holdout,OOS,qwerty zxcv
+holdout,OOS,I forgot my online banking password
+holdout,OOS,do you like cats
+holdout,OOS,Where can I buy a train ticket?
