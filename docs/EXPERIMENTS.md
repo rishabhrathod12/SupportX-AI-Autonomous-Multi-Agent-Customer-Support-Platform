@@ -1,7 +1,7 @@
 # Experiment Log
 
 Every number here comes from a real run (also logged in MLflow). Scores are on the VALIDATION split.
-The test splits have not been used yet; they are reserved for the final model comparison.
+The test split was used exactly once, for the final reference model (E6). Everything else is validation.
 
 ## How to reproduce and inspect
 ```powershell
@@ -135,3 +135,14 @@ E5b - first end-to-end run with the REAL trained model (real server, 2026-11-15,
 - Consequence: with this model and the 0.6 threshold, many ordinary messages go to a human. That is the safe direction
   but not yet useful. The fix is better data (realistic, varied phrasing, ideally real tickets) and a proper held-out
   evaluation of confidence, not more threshold tweaking. The unit tests use a fake intent model, so they cannot show this.
+
+### E6 - Final held-out test scores for the reference model (TEST split, run once)
+Run date: 2026-11-18. `python -m supportx.ml.final_test <dataset>` (refuses to run twice). Model: TF-IDF + LogReg C=10,
+chosen on validation in E1-E4. Reports: `artifacts/models/intent_tfidf_lr_<dataset>.test_report.json`.
+
+| Dataset | n test | Accuracy | Macro-F1 | Majority baseline acc |
+|---|---|---|---|---|
+| Bitext (synthetic) | 2,427 | 0.993 | 0.993 | 0.041 |
+| Banking77 | 3,080 | 0.897 | 0.897 | 0.013 |
+
+Matches validation (0.993 / 0.886), so no sign of overfitting to validation. Full discussion: `docs/EVALUATION.md`.

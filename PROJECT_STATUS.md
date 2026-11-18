@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 9.3 observability (done, committed locally); evaluation report still to write; Docker files untested
+Last updated: 2026-11-13 | Current phase: 9.3b evaluation report (done, uncommitted); Docker files untested. Roadmap Phases 0-9 all have code; remaining items need user input
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -162,6 +162,9 @@ Last updated: 2026-11-13 | Current phase: 9.3 observability (done, committed loc
       intent-model fingerprint (file, SHA-256, size, mtime) logged at startup and served by staff-only
       `GET /staff/model-info`. 8 new tests; ruff and mypy --strict clean. The full suite was NOT re-run after 9.3
       (74 related tests passed). Not done: metrics endpoint, tracing, per-ticket decision logging.
+- [x] Phase 9.3b: `supportx.ml.final_test` (one-time test-split scoring, refuses to re-run) and `docs/EVALUATION.md`.
+      TEST results, reference LogReg C=10, scored once: Bitext acc 0.993 / macro-F1 0.993 (n=2,427); Banking77 acc 0.897 /
+      macro-F1 0.897 (n=3,080). Consistent with validation. The test split is now spent for this model: do not tune on it.
 - [ ] Paused tickets now persist in SQLite; several server processes would need a PostgreSQL saver.
 - [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
 - [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
@@ -194,7 +197,7 @@ Last updated: 2026-11-13 | Current phase: 9.3 observability (done, committed loc
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Run the full test suite, then commit and push 7.2b. After that: improve intent data/confidence (E5b), or Phase 6.2
-(OpenAI) once an API key exists.
+All roadmap phases have code. Next depends on you: refund policy numbers, an OpenAI key (Phase 6.2), the Amazon Reviews
+license (sentiment), or better intent data (E5b). Also pending: build the Docker image and run on PostgreSQL where Docker exists.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).
