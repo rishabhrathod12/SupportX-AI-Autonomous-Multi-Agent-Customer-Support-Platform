@@ -208,6 +208,10 @@ Dev (n=20; one question = 5 points, so differences of 1-2 questions are noise):
   (top-1 alone: 80%), with 1.5 passages quoted on average. Cutoffs 0.3-0.5 gave the same coverage; 0.5 kept.
 - Holdout (n=12, scored once), right section SHOWN to the customer: old configuration 0.58 (top-1 0.50) -> new 0.83
   (top-1 0.67). With 12 questions one standard error is about 11 points, so treat this as "better", not a size.
+- Still wrong, and visible in the demo: "What is your return policy?" retrieves "Changed your mind" first (0.23); the right
+  section ("Return window") is not shown, and the reply's runner-up is an unrelated tracking passage because it cleared the
+  half-score cutoff. Cost of the runner-up rule: sometimes one irrelevant paragraph. A stricter cutoff (0.7) avoids more of
+  that but showed the right section for one fewer dev question (0.80 vs 0.85), so 0.5 was kept; this is a judgment call.
 - Not fixed: "I want to cancel an order that is already on its way" and "I put the wrong address. Can it still be fixed?"
   still retrieve the wrong passage (lexical matching cannot connect "on its way" to "shipped"); "answered" is 100%
   because the 0.1 minimum score never rejected any of these on-topic questions (no off-topic questions were scored here;
