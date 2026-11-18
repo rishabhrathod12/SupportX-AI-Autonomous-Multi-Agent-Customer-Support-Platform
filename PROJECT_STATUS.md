@@ -184,12 +184,15 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       is re-checked at approval time (order shipped meanwhile -> 409, staff can reject), and the step is idempotent after a crash.
       Not checked: a PENDING refund on a cancelled order; no customer notification; no stock/payment reversal (no such systems).
       Full suite 291 passed (one fixture count updated); ruff and mypy --strict clean; real-component run verified.
-- [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
+- [x] (done in 7.2a/7.2b) The agents are wired to the real intent model, database services and retriever; only sentiment is still a stub.
 - [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
       OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a
       newer major version than I know well, so the wrapper must be checked against the installed SDK before use.
-- [ ] API limits before production: one shared staff key (approver name is self-declared), customers identified only
-      by order number + email, no rate limiting, no HTTPS, no PostgreSQL run.
+- [x] Rate limiting (2026-11-18): per-client sliding-window limits (`RATE_LIMIT_PER_MINUTE`, default 120) and a lockout of
+      /staff/* after `AUTH_FAILURES_PER_MINUTE` (default 10) wrong keys; health probes exempt; 429 + Retry-After; 7 tests.
+      In-memory and per process (resets on restart, not shared between processes), does not read X-Forwarded-For.
+- [ ] API limits before production, still open: one shared staff key (approver name is self-declared), customers identified
+      only by order number + email, no HTTPS, no PostgreSQL run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
       NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
 - [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
@@ -197,11 +200,10 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       replace them, along with the rules themselves (e.g. final-sale items, one pending request per order).
 - [ ] Not yet tested against PostgreSQL (Docker and PostgreSQL are not installed); SQLite returns naive datetimes,
       so the repository layer must normalize them to UTC (planned for 5.2).
-- [ ] The epoch-logging callback in `dl/intent.py` was added after the last full test run; the training runs
-      exercised it, but the DL tests were not re-run after it.
+- [x] The DL tests were re-run after the epoch-logging callback (they are part of every full run since; 301 passed).
 - [ ] Sentiment, priority, routing and resolution-time models (need data decisions; see `docs/DATASETS.md`)
 - [ ] Open dataset verification items (see `docs/DATASETS.md`), notably CDLA-Sharing-1.0 terms
-- [ ] Phase 2.2 onward per `DEVELOPMENT_ROADMAP.md`
+- [x] Roadmap phases 2-9 all have code (see the phase entries above).
 
 ## Known notes
 - Harmless import-time messages: TensorFlow prints an absl log notice and an oneDNN notice

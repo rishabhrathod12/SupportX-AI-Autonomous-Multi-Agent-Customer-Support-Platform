@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # Shared key protecting the staff endpoints (X-API-Key header). Unset = those endpoints are off.
     staff_api_key: SecretStr | None = None
 
+    # Per-client limits over a sliding minute, 0 = unlimited (see supportx.api.ratelimit for the caveats).
+    rate_limit_per_minute: int = Field(default=120, ge=0)
+    auth_failures_per_minute: int = Field(default=10, ge=0)  # wrong staff keys before a lockout
+
     # MLflow 3 deprecates the './mlruns' file store; SQLite is its recommended local backend.
     mlflow_tracking_uri: str = "sqlite:///mlflow.db"
 

@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from supportx.agents.tickets import TicketService, build_ticket_service
 from supportx.api.middleware import add_request_logging
+from supportx.api.ratelimit import add_rate_limiting
 from supportx.api.routers import customer, demo, health, staff
 from supportx.api.routers import tickets as tickets_router
 from supportx.core import (
@@ -85,6 +86,7 @@ def create_app(
     if engine is not None:  # tests may not run the lifespan, so wire the session factory now
         app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
 
+    add_rate_limiting(app, settings)  # added first = inside the logger, so 429s are logged too
     add_request_logging(app)
     app.include_router(health.router)
     app.include_router(customer.router)
