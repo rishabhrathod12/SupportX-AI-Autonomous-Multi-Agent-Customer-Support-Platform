@@ -1,0 +1,33 @@
+split,question,source,section
+dev,What is your return policy?,refund_policy.md,Return window
+dev,How many days do I have to return an item?,refund_policy.md,Return window
+dev,Is there a time limit for sending something back?,refund_policy.md,Return window
+dev,My item arrived damaged. Can I get a refund?,refund_policy.md,Damaged or not as described
+dev,The product is not what the website showed,refund_policy.md,Damaged or not as described
+dev,Can I return something just because I changed my mind?,refund_policy.md,Changed your mind
+dev,Can I send back a final sale item?,refund_policy.md,Final sale items
+dev,My parcel never arrived. Can I get my money back?,refund_policy.md,Orders that have not arrived
+dev,Who approves refunds and how does the money come back?,refund_policy.md,How refunds are approved
+dev,Can I have two refund requests open for one order?,refund_policy.md,How refunds are approved
+dev,Can I cancel my order after it has shipped?,cancellation_policy.md,Cancelling after shipping
+dev,Can I cancel an order that has not shipped yet?,cancellation_policy.md,Cancelling before shipping
+dev,Is there a fee for cancelling?,cancellation_policy.md,Cancelling before shipping
+dev,What do I need to send you to cancel an order?,cancellation_policy.md,How to cancel
+dev,How long does standard delivery take?,shipping_policy.md,Delivery times
+dev,How fast is express shipping?,shipping_policy.md,Delivery times
+dev,How do I get my tracking number?,shipping_policy.md,Tracking your order
+dev,Can I change the delivery address after I ordered?,shipping_policy.md,Changing the delivery address
+dev,My tracking has not moved for a week,shipping_policy.md,Lost or delayed parcels
+dev,When is a parcel treated as lost?,shipping_policy.md,Lost or delayed parcels
+holdout,What are the rules for returning something?,refund_policy.md,Return window
+holdout,I received a broken item. What should I do?,refund_policy.md,Damaged or not as described
+holdout,Do you take back items I simply don't want?,refund_policy.md,Changed your mind
+holdout,Are items on clearance returnable?,refund_policy.md,Final sale items
+holdout,The carrier says delivered but I never got it,refund_policy.md,Orders that have not arrived
+holdout,Does a person check my refund request?,refund_policy.md,How refunds are approved
+holdout,I want to cancel an order that is already on its way,cancellation_policy.md,Cancelling after shipping
+holdout,How do I cancel my order?,cancellation_policy.md,How to cancel
+holdout,Will I be charged to cancel before it ships?,cancellation_policy.md,Cancelling before shipping
+holdout,How many business days does shipping take?,shipping_policy.md,Delivery times
+holdout,Where can I follow my parcel online?,shipping_policy.md,Tracking your order
+holdout,I put the wrong address. Can it still be fixed?,shipping_policy.md,Changing the delivery address
