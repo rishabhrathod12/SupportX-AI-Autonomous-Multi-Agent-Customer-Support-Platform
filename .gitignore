@@ -51,3 +51,7 @@ supportx*.db
 Thumbs.db
 .idea/
 .vscode/
+
+# Local demo databases
+demo.db
+demo_checkpoints.db
