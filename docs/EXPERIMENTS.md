@@ -122,3 +122,16 @@ Measured on the Bitext VALIDATION split (n=2,427; overall accuracy 0.993). Test 
   escalating a ticket is cheap and a confident wrong answer is expensive. This is a judgment call from the numbers above,
   not an optimum. Caveat: the model was trained on synthetic, templated text, so real customers will behave differently;
   re-measure on real messages when they exist.
+
+E5b - first end-to-end run with the REAL trained model (real server, 2026-11-15, 4 hand-written messages, not a benchmark):
+- "What is your return policy?" -> answered from the refund policy passage.
+- "My kettle arrived broken and I want my money back, order ORD-5001" -> get_refund, paused for a human (correct).
+- "Where is my order ORD-5001?" -> escalated as low_confidence (a handoff), although the predicted intent was the right
+  one (track_order) at confidence 0.26; the bare "Where is my order?" scores the same 0.26.
+- "asdf qwerty" -> escalated as low_confidence (correct).
+- Why: the training text carries a placeholder token where an order number goes, and the plain phrasing is rare in the
+  synthetic data. Replacing real order numbers with that placeholder before predicting is NOT a clean fix on 10 probes:
+  tracking rises 0.26 -> 0.75 but the refund message falls 0.92 -> 0.51. Not adopted.
+- Consequence: with this model and the 0.6 threshold, many ordinary messages go to a human. That is the safe direction
+  but not yet useful. The fix is better data (realistic, varied phrasing, ideally real tickets) and a proper held-out
+  evaluation of confidence, not more threshold tweaking. The unit tests use a fake intent model, so they cannot show this.

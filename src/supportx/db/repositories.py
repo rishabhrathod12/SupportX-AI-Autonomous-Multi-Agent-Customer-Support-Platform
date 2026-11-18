@@ -5,8 +5,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from supportx.db.enums import RefundReason, RefundStatus
-from supportx.db.models import Order, RefundRequest
+from supportx.db.enums import RefundReason, RefundStatus, TicketStatus
+from supportx.db.models import Order, RefundRequest, Ticket
 
 
 def to_utc(value: datetime | None) -> datetime | None:
@@ -47,6 +47,46 @@ class OrderRepository:
             # populate_existing: overwrite anything already loaded in this session with fresh data
             stmt = stmt.with_for_update(of=Order).execution_options(populate_existing=True)
         return self._session.scalars(stmt).one_or_none()
+
+
+class TicketRepository:
+    def __init__(self, session: Session):
+        self._session = session
+
+    def add(self, ticket: Ticket) -> Ticket:
+        self._session.add(ticket)
+        self._session.flush()
+        return ticket
+
+    def get(self, ticket_id: str, *, for_update: bool = False) -> Ticket | None:
+        stmt = (
+            select(Ticket)
+            .where(Ticket.id == ticket_id)
+            .options(selectinload(Ticket.refund_request))
+        )
+        if for_update:
+            stmt = stmt.with_for_update(of=Ticket).execution_options(populate_existing=True)
+        return self._session.scalars(stmt).one_or_none()
+
+    def list_awaiting(self) -> list[Ticket]:
+        stmt = (
+            select(Ticket)
+            .where(Ticket.status == TicketStatus.AWAITING_APPROVAL)
+            .options(selectinload(Ticket.refund_request))
+            .order_by(Ticket.created_at, Ticket.id)
+        )
+        return list(self._session.scalars(stmt))
+
+    def find_awaiting_by_refund(self, refund_request_id: int) -> Ticket | None:
+        stmt = (
+            select(Ticket)
+            .where(
+                Ticket.refund_request_id == refund_request_id,
+                Ticket.status == TicketStatus.AWAITING_APPROVAL,
+            )
+            .options(selectinload(Ticket.refund_request))
+        )
+        return self._session.scalars(stmt).first()
 
 
 class RefundRepository:

@@ -4,6 +4,7 @@ Run:  uvicorn supportx.api.app:create_app --factory --reload
 Docs: http://127.0.0.1:8000/docs   (turned off when APP_ENV=production)
 """
 
+import sqlite3
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -12,7 +13,9 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import Engine
 from sqlalchemy.orm import sessionmaker
 
+from supportx.agents.tickets import TicketService, build_ticket_service
 from supportx.api.routers import customer, health, staff
+from supportx.api.routers import tickets as tickets_router
 from supportx.core import (
     ConfigurationError,
     ExternalServiceError,
@@ -38,8 +41,10 @@ def create_app(
     settings: Settings | None = None,
     engine: Engine | None = None,
     policy: RefundPolicy | None = None,
+    tickets: TicketService | None = None,
 ) -> FastAPI:
-    """Build the app. Tests pass their own settings and engine; production passes nothing."""
+    """Build the app. Tests pass their own settings, engine and ticket service; production
+    passes nothing and everything is built from the settings at start-up."""
     settings = settings or get_settings()
     setup_logging(settings.log_level)
 
@@ -50,7 +55,18 @@ def create_app(
         if own_engine and settings.app_env == "development":
             init_db(db)  # convenience for local work; production uses migrations
         app.state.session_factory = sessionmaker(db, expire_on_commit=False)
+
+        checkpoint_connection: sqlite3.Connection | None = None
+        if tickets is None:
+            try:
+                app.state.tickets, checkpoint_connection = build_ticket_service(
+                    settings, db, app.state.policy
+                )
+            except ConfigurationError as exc:  # the rest of the API still works
+                logger.warning("Ticket workflow disabled: %s", exc)
         yield
+        if checkpoint_connection is not None:
+            checkpoint_connection.close()
         if own_engine:
             db.dispose()
 
@@ -64,11 +80,13 @@ def create_app(
     )
     app.state.settings = settings
     app.state.policy = policy or RefundPolicy()
+    app.state.tickets = tickets  # None until the lifespan builds it (or stays None if disabled)
     if engine is not None:  # tests may not run the lifespan, so wire the session factory now
         app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
 
     app.include_router(health.router)
     app.include_router(customer.router)
+    app.include_router(tickets_router.router)
     app.include_router(staff.router)
 
     @app.exception_handler(NotFoundError)

@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session, sessionmaker
 
+from supportx.agents.tickets import TicketService
 from supportx.core import Settings
 from supportx.services import RefundPolicy, RefundWorkflow
 
@@ -38,6 +39,19 @@ def get_workflow(request: Request, session: SessionDep) -> RefundWorkflow:
 
 
 WorkflowDep = Annotated[RefundWorkflow, Depends(get_workflow)]
+
+
+def get_ticket_service(request: Request) -> TicketService:
+    service: TicketService | None = getattr(request.app.state, "tickets", None)
+    if service is None:
+        raise HTTPException(
+            status_code=503,
+            detail="The ticket workflow is not available (see the server log for why).",
+        )
+    return service
+
+
+TicketsDep = Annotated[TicketService, Depends(get_ticket_service)]
 
 
 def require_staff(

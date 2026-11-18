@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from supportx.db.enums import OrderStatus, RefundReason, RefundStatus
+from supportx.db.enums import OrderStatus, RefundReason, RefundStatus, TicketStatus
 
 
 def _now() -> datetime:
@@ -100,6 +100,32 @@ class Shipment(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     order: Mapped[Order] = relationship(back_populates="shipment")
+
+
+class Ticket(Base):
+    """One customer conversation handled by the agent workflow.
+
+    `id` is also the workflow's thread id, so a paused ticket can be found and resumed.
+    """
+
+    __tablename__ = "tickets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)  # random UUID
+    customer_email: Mapped[str | None] = mapped_column(String(255), index=True)
+    order_number: Mapped[str | None] = mapped_column(String(40))
+    message: Mapped[str] = mapped_column(Text)
+    status: Mapped[TicketStatus] = mapped_column(_enum(TicketStatus))
+    approval_kind: Mapped[str | None] = mapped_column(String(20))  # "refund" / "cancellation"
+    refund_request_id: Mapped[int | None] = mapped_column(
+        ForeignKey("refund_requests.id"), index=True
+    )
+    response: Mapped[str | None] = mapped_column(Text)
+    escalated: Mapped[bool] = mapped_column(default=False)
+    escalation_reason: Mapped[str | None] = mapped_column(String(60))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    refund_request: Mapped["RefundRequest | None"] = relationship()
 
 
 class RefundRequest(Base):

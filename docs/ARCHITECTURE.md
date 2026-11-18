@@ -49,8 +49,8 @@ Dependency rule: arrows only point downward in the table. `ml`, `dl`, `rag`, `ag
 2. **ML and DL are separate packages with the same interface** (`train`, `evaluate`, `save`, `load`, `predict`). The agents depend on the interface, so a model can be swapped (e.g., XGBoost -> BiLSTM) after comparing metrics in MLflow.
 3. **Refund eligibility is deterministic code, not LLM judgment.** The LLM only explains the decision. Money-related logic must be testable and auditable.
 4. **Human approval is a LangGraph interrupt with a checkpointer.** The paused ticket (one thread per ticket) resumes
-   when a person decides. Today the checkpointer is `InMemorySaver`, which is lost when the process restarts; a
-   persistent checkpointer (PostgreSQL or SQLite) is required before paused tickets can survive a restart. When a
+   when a person decides. The production checkpointer is `SqliteSaver` (a file), so paused tickets survive a restart (verified with a
+   real server restart); tests use the in-memory saver. For several server processes a PostgreSQL saver will be needed. When a
    ticket resumes, the paused node re-runs from its start, so code before `interrupt()` must have no side effects.
    An agent that still fails after its retries does not crash the ticket: an error handler records the failure
    (details go to the logs only) and the Supervisor hands the ticket to a human.
@@ -74,7 +74,10 @@ Dependency rule: arrows only point downward in the table. `ml`, `dl`, `rag`, `ag
 
 ## 5. Data model (initial sketch)
 
-Implemented (Phase 5.1): `customers`, `orders`, `order_items`, `shipments`, `refund_requests`.
+Implemented: `customers`, `orders`, `order_items`, `shipments`, `refund_requests`, and `tickets` (Phase 7.2b: status
+open / awaiting_approval / completed, the link to its refund request, the customer's email for owner checks, the reply,
+and the escalation reason). The ticket id is also the workflow's thread id. A ticket decision is two steps - record it on
+the refund request (idempotent), then resume the paused ticket - so a crash between them is safe to retry.
 Money is stored as integer cents; timestamps are timezone-aware UTC. The human decision is stored on the
 refund request itself (`status` pending_approval / approved / rejected, `decided_by`, `decided_at`,
 `decision_note`), so there is no separate `approvals` table.

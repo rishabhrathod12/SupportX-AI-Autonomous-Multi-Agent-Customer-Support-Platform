@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-13 | Current phase: 7.2a - Real components behind the graph (complete, uncommitted); awaiting review
+Last updated: 2026-11-13 | Current phase: 7.2b committed; Phase 9.1 (Docker files, untested) in progress
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -138,15 +138,20 @@ Last updated: 2026-11-13 | Current phase: 7.2a - Real components behind the grap
       `adapters.py`; ruff and mypy --strict clean. Sentiment is STILL the keyword stub (no sentiment model yet).
 
 ## Pending
-- [ ] Uncommitted: Phase 7.2a code, tests, docs (commit/push needs approval)
-- [ ] Phase 7.2b: connect the staff decision to the ticket - one staff action must update the database request AND
-      resume the paused ticket (today the staff refund endpoints only update the database, so the ticket would stay
-      paused); expose tickets through the API; persistent checkpointer so paused tickets survive a restart.
+- [x] Phase 7.2a committed and pushed (`9fe50dd`).
+- [x] Phase 7.2b (full suite: 261 passed; ruff and mypy --strict clean): `tickets` table, `TicketService` (submit, owner-only status,
+      two-step idempotent decision: record on the refund request, then resume the ticket), SqliteSaver checkpointer
+      (`langgraph-checkpoint-sqlite` added to requirements, pip check clean), ticket endpoints (`/tickets`,
+      `/tickets/status`, `/staff/tickets/awaiting`, `/staff/tickets/{id}/decision`), old refund endpoints now resume
+      the waiting ticket. 19 service tests + 15 API tests pass; verified on a real server across a real restart.
+- [x] 7.2b committed after the full run (261 passed in ~21 min, 2026-11-18).
+- [ ] MODEL QUALITY: with the real synthetic-trained intent model, "Where is my order ORD-5001?" escalates
+      (correct intent, confidence 0.26). See `docs/EXPERIMENTS.md` E5b. Needs better data, not threshold tweaks.
 - [ ] Known limitation: the stub reply quotes only the top-1 passage and the lexical retriever's scores can be nearly
       tied and low (e.g. 0.143 / 0.128 / 0.126 for "What is your return policy? How many days do I have?", where the right
       passage ranked second). The minimum score (0.1) was not tuned from a few examples. The real LLM Response Agent
       should see several passages; a semantic embedding model should help.
-- [ ] Paused tickets live in `InMemorySaver`: lost on restart. A persistent checkpointer is still needed.
+- [ ] Paused tickets now persist in SQLite; several server processes would need a PostgreSQL saver.
 - [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
 - [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
 - [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
@@ -178,7 +183,7 @@ Last updated: 2026-11-13 | Current phase: 7.2a - Real components behind the grap
 - No models trained; no datasets chosen yet.
 
 ## Next task
-Phase 7.2b (see Pending): ticket endpoints plus one staff decision that updates the database request and resumes the
-paused ticket, with a persistent checkpointer. Phase 6.2 (OpenAI) still needs an API key.
+Run the full test suite, then commit and push 7.2b. After that: improve intent data/confidence (E5b), or Phase 6.2
+(OpenAI) once an API key exists.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
 DL intent model (needs the deferred Hugging Face/PyTorch install).

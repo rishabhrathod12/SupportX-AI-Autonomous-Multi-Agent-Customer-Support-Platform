@@ -2,9 +2,10 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from supportx.db.enums import RefundReason, RefundStatus
+from supportx.agents.tickets import TicketView
+from supportx.db.enums import RefundReason, RefundStatus, TicketStatus
 from supportx.db.models import RefundRequest
 from supportx.db.repositories import to_utc
 from supportx.services.refund import RefundDecision
@@ -29,6 +30,70 @@ class OrderLookupIn(_Strict):
 class RefundRequestIn(OrderLookupIn):
     reason: RefundReason
     requested_cents: int | None = Field(default=None, gt=0)  # omit to ask for the maximum
+
+
+class TicketCreateIn(_Strict):
+    message: str = Field(min_length=1, max_length=2000)
+    customer_email: str | None = Field(default=None, min_length=3, max_length=255)
+    order_number: str | None = Field(default=None, min_length=1, max_length=40)
+
+    @field_validator("customer_email")
+    @classmethod
+    def _looks_like_an_email(cls, value: str | None) -> str | None:
+        if value is not None and "@" not in value:
+            raise ValueError("customer_email must contain '@'")
+        return value
+
+
+class TicketStatusIn(_Strict):
+    ticket_id: str = Field(min_length=1, max_length=36)
+    customer_email: str = Field(min_length=3, max_length=255)
+
+
+class CustomerTicketOut(BaseModel):
+    """What the customer may see: no internal ids, reasons or approval details."""
+
+    ticket_id: str
+    status: TicketStatus
+    message: str  # the reply, or a short note while the ticket waits for a person
+
+    @classmethod
+    def from_view(cls, view: TicketView) -> "CustomerTicketOut":
+        if view.status is TicketStatus.AWAITING_APPROVAL:
+            text = "Your request is with our support team for review. We'll update you here."
+        elif view.status is TicketStatus.OPEN:
+            text = "We're still working on your request."
+        else:
+            text = view.response or "A member of our team will follow up."
+        return cls(ticket_id=view.ticket_id, status=view.status, message=text)
+
+
+class StaffTicketOut(BaseModel):
+    ticket_id: str
+    status: TicketStatus
+    approval_kind: str | None
+    refund_request_id: int | None
+    amount_cents: int | None
+    escalated: bool
+    escalation_reason: str | None
+    response: str | None
+    created_at: datetime
+
+    @classmethod
+    def from_view(cls, view: TicketView) -> "StaffTicketOut":
+        return cls(**view.model_dump())
+
+
+class TicketDecisionIn(_Strict):
+    approved: bool
+    approver: str = Field(min_length=1, max_length=120)
+    note: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _rejection_needs_a_reason(self) -> "TicketDecisionIn":
+        if not self.approved and not self.note:
+            raise ValueError("A reason (note) is required when rejecting.")
+        return self
 
 
 class ApproveIn(_Strict):

@@ -40,6 +40,9 @@ mlruns/
 mlartifacts/
 mlflow.db
 
+# Local databases (app data and paused-ticket checkpoints)
+supportx*.db
+
 # Notebooks
 .ipynb_checkpoints/
 

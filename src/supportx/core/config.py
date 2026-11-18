@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # MLflow 3 deprecates the './mlruns' file store; SQLite is its recommended local backend.
     mlflow_tracking_uri: str = "sqlite:///mlflow.db"
 
+    # Ticket workflow: where paused tickets are saved, the intent model, the policy documents.
+    checkpoint_db_path: str = "supportx_checkpoints.db"
+    intent_model_path: str = "artifacts/models/intent_tfidf_lr_bitext.joblib"
+    policy_docs_dir: str = "data/sample/policies"
+
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.
     # 0.6 (not 0.4): measured on out-of-domain messages it catches many more confidently-wrong cases
     # for about 1% extra escalations on in-domain validation data (see docs/EXPERIMENTS.md, E5).
