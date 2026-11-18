@@ -219,7 +219,7 @@ def build_ticket_service(
     if not model_path.exists():
         raise ConfigurationError(
             f"Intent model not found at {model_path}. Train it first: "
-            "python -m supportx.ml.train_intent bitext"
+            "python -m supportx.ml.train_intent bitext --augment 120"
         )
     docs_dir = Path(settings.policy_docs_dir)
     if not docs_dir.is_dir():

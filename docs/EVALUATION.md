@@ -37,8 +37,11 @@ Reading it:
 Only partly (E5/E5b). In-domain the model is confident 96% of the time, so the threshold rarely fires. Out of
 domain, 17% of Banking77 messages are still answered at confidence >= 0.6, i.e. confidently wrong. Conversely,
 "Where is my order ORD-5001?" is routed to a human (right intent, confidence 0.26). With the real model many
-ordinary messages therefore go to a human: safe, but not yet useful. This was not fixed because the cause is
-training data (synthetic, templated), not the threshold.
+ordinary messages therefore go to a human: safe, but not yet useful. This was not fixed by the threshold because the cause is
+training data (synthetic, templated). Follow-up (E7): hand-written realistic phrasings added to training lifted
+the share of in-scope probe messages handled automatically from 47% to 75% on a holdout of 36 hand-written messages
+(confidently wrong 5 -> 3), with no loss on Bitext validation. Both the phrasings and the probes were written by the
+same person, so treat this as optimistic; the augmented model's Bitext TEST score was not measured.
 
 ## 4. System checks
 - Automated tests: 261 passed in a full run at Phase 7.2b (about 21 min, mostly TensorFlow); tests added since

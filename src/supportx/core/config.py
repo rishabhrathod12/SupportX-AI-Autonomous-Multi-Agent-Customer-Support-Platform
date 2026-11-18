@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Ticket workflow: where paused tickets are saved, the intent model, the policy documents.
     checkpoint_db_path: str = "supportx_checkpoints.db"
-    intent_model_path: str = "artifacts/models/intent_tfidf_lr_bitext.joblib"
+    intent_model_path: str = "artifacts/models/intent_tfidf_lr_bitext_aug.joblib"
     policy_docs_dir: str = "data/sample/policies"
 
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.

@@ -139,3 +139,25 @@ def test_run_training_logs_to_mlflow_and_saves_model(tickets: pd.DataFrame, tmp_
 def test_run_training_reports_missing_data(tmp_path: Path) -> None:
     with pytest.raises(DataError, match="prepare"):
         run_training("nope", processed_root=tmp_path, models_root=tmp_path)
+
+
+def test_run_training_with_augmentation_saves_a_separate_model(
+    tickets: pd.DataFrame, tmp_path: Path
+) -> None:
+    _write_processed(tmp_path / "processed", tickets)
+    probes = tmp_path / "probes.csv"
+    pd.DataFrame(
+        {"split": ["dev"], "intent": ["track_order"], "text": ["where is my parcel"]}
+    ).to_csv(probes, index=False)
+    metrics = run_training(
+        "toy",
+        processed_root=tmp_path / "processed",
+        models_root=tmp_path / "models",
+        tracking_uri=f"sqlite:///{(tmp_path / 'mlflow.db').as_posix()}",
+        artifact_root=tmp_path / "mlartifacts",
+        augment_per_intent=5,
+        probe_path=probes,
+    )
+    assert "val_accuracy" in metrics
+    assert (tmp_path / "models" / "intent_tfidf_lr_toy_aug.joblib").exists()
+    assert not (tmp_path / "models" / "intent_tfidf_lr_toy.joblib").exists()  # reference untouched

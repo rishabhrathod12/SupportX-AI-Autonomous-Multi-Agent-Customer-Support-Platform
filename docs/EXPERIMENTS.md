@@ -146,3 +146,41 @@ chosen on validation in E1-E4. Reports: `artifacts/models/intent_tfidf_lr_<datas
 | Banking77 | 3,080 | 0.897 | 0.897 | 0.013 |
 
 Matches validation (0.993 / 0.886), so no sign of overfitting to validation. Full discussion: `docs/EVALUATION.md`.
+
+### E7 - Realistic training phrasings and order-number normalization (probe set, validation only)
+Run date: 2026-11-18. Motivation: E5b (ordinary messages escalate). Test split NOT used for this model.
+Probe set: `data/sample/intent_probe.csv`, 135 hand-written messages written and committed BEFORE any change:
+`dev` (80 in-scope across 10 intents + 10 out-of-scope) for decisions, `holdout` (36 in-scope + 5 out-of-scope)
+scored once at the end. Metric (`supportx.ml.probe_eval`, threshold 0.6): *useful* = right intent AND confident
+(handled automatically), *escalated* = low confidence (a human takes over), *confidently wrong* = wrong at/above threshold.
+
+| Change (all LogReg C=10, Bitext train) | Dev useful / 80 | Escalated | Confidently wrong | Bitext val acc |
+|---|---|---|---|---|
+| Baseline (reference model E1) | 31 | 44 | 6 | 0.993 |
+| + real order numbers (ORD-123) mapped to the dataset's order-number token | 31 | 44 | 6 | 0.993 |
+| + hand-written phrasings, 60 per intent (540 rows) | 55 | 22 | 4 | 0.993 |
+| + 120 per intent (1,080 rows) **chosen** | 57 | 21 | 3 | 0.992 |
+| + 250 per intent (2,250 rows) | 62 | 16 | 4 | 0.993 |
+
+- Order-number mapping alone changed nothing in total (tracking and cancelling improved, the two refund intents got
+  worse) - it is kept because it makes train and serve text consistent, not because it helps by itself.
+- The phrasings (`supportx.data.augment`: 9 intents x ~16 hand-written cores, expanded with openers, closers, order
+  references, typos; train split only; probe texts removed) are what helped. 120 was chosen over 250 because the
+  4-5 message difference is within noise on 80 messages and less synthetic data means less fitting to my own wording.
+- HOLDOUT, scored once (36 in-scope, 5 out-of-scope):
+
+| Model | Useful | Escalated | Confidently wrong | Out-of-scope escalated |
+|---|---|---|---|---|
+| Reference (old tokenization) | 17 (47%) | 16 | 5 | 3 / 5 |
+| Augmented (120/intent) | 27 (75%) | 7 | 3 | 4 / 5 |
+
+- Remaining confident mistakes (holdout): "Can I get a refund after 30 days?" -> get_refund 0.94 (a policy question treated
+  as a refund request); "when do I get my money back for the return I already sent" -> get_refund 0.84 (track_refund);
+  "Where can I buy a train ticket?" -> place_order 0.86. Dev: "how do I reset my bank PIN" -> recover_password 0.93.
+  Refunds and cancellations still need a human decision, so a wrong route costs a pending request, not money.
+- BIG CAVEAT: I wrote the training phrasings AND the probes, so these probe scores are optimistic about real customers.
+  The Bitext validation score did not regress (0.9918 vs 0.9930, noise). The Bitext test split was not scored for the
+  augmented model. Real customer messages remain the proper test; the model is now the serving default
+  (`artifacts/models/intent_tfidf_lr_bitext_aug.joblib`, reference file kept).
+- End-to-end with the real model and a seeded order: "Where is my order ORD-5001?" is now answered (was escalated,
+  E5b); "Could you give me a tracking update for order ORD-5001 please" still escalates (low confidence).

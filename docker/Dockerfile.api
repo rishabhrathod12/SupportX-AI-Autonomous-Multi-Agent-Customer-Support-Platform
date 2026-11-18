@@ -25,7 +25,7 @@ RUN useradd --create-home --uid 10001 supportx \
 USER supportx
 
 ENV CHECKPOINT_DB_PATH=/app/state/supportx_checkpoints.db \
-    INTENT_MODEL_PATH=/app/artifacts/models/intent_tfidf_lr_bitext.joblib \
+    INTENT_MODEL_PATH=/app/artifacts/models/intent_tfidf_lr_bitext_aug.joblib \
     POLICY_DOCS_DIR=/app/data/sample/policies
 
 EXPOSE 8000

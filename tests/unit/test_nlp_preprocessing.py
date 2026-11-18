@@ -51,7 +51,7 @@ def test_clean_text_rejects_non_strings() -> None:
 
 def test_tokenize_basic_and_contractions() -> None:
     assert tokenize("Where's my order ORD-12345? I can't wait!") == [
-        "where's", "my", "order", "ord", "12345", "i", "can't", "wait",
+        "where's", "my", "order", "<order_number>", "i", "can't", "wait",
     ]  # fmt: skip
 
 
@@ -69,3 +69,9 @@ def test_tokenize_empty() -> None:
 def test_clean_series_handles_missing_values() -> None:
     out = clean_series(pd.Series(["Hi  There", None, float("nan")]))
     assert out.tolist() == ["hi there", "", ""]
+
+
+def test_real_order_numbers_match_the_dataset_slot_token() -> None:
+    assert clean_text("Where is ORD-5001?") == clean_text("Where is {{Order Number}}?")
+    assert clean_text("ord-77 and ORD-8") == "<order_number> and <order_number>"
+    assert clean_text("keyword-1234 or WORD-5") == "keyword-1234 or word-5"

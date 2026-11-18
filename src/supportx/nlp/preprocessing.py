@@ -15,6 +15,9 @@ EMAIL_TOKEN = "<email>"
 _EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b", re.IGNORECASE)
 _URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)  # runs before lowercasing
 _SPACES = re.compile(r"\s+")
+# Real order numbers (ORD-12345) become the same token the datasets use for their
+# {{Order Number}} slot, so a model trained on slot text also understands real order numbers.
+_ORDER_NUMBER = re.compile(r"\bORD-\d+\b", re.IGNORECASE)
 _TEMPLATE_SLOT = re.compile(r"\{\{\s*([^{}]+?)\s*\}\}")  # dataset slots like {{Order Number}}
 _NON_WORD = re.compile(r"[^a-z0-9]+")
 # a placeholder like <url>, or a word/number with an optional contraction suffix (don't, it's)
@@ -36,6 +39,7 @@ def clean_text(text: str, lowercase: bool = True) -> str:
         raise TypeError(f"clean_text expects str, got {type(text).__name__}")
     text = unicodedata.normalize("NFKC", text).translate(_APOSTROPHES)
     text = _TEMPLATE_SLOT.sub(_slot_to_token, text)
+    text = _ORDER_NUMBER.sub(" <order_number> ", text)
     text = _EMAIL.sub(f" {EMAIL_TOKEN} ", text)  # emails first, so their domain isn't read as a URL
     text = _URL.sub(f" {URL_TOKEN} ", text)
     text = _SPACES.sub(" ", text).strip()

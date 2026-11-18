@@ -12,11 +12,15 @@ import json
 import time
 from pathlib import Path
 
+import pandas as pd
+
 from supportx.core import DataError, get_logger, setup_logging
+from supportx.data.augment import build_augmentation
 from supportx.data.splits import load_split, load_split_info
 from supportx.ml.evaluate import per_class_report
 from supportx.ml.experiment import evaluate_with_baseline, log_experiment_run
 from supportx.ml.intent import IntentClassifier, ModelKind
+from supportx.ml.probe_eval import PROBE_PATH
 
 logger = get_logger(__name__)
 LABEL_COLUMN = "intent"
@@ -33,11 +37,20 @@ def run_training(
     seed: int = 42,
     model_kind: ModelKind = "logreg",
     n_estimators: int = 200,
+    augment_per_intent: int = 0,
+    probe_path: Path = PROBE_PATH,
 ) -> dict[str, float]:
     """Train on the train split, score on the validation split, log everything to MLflow."""
     train = load_split(processed_root, dataset, "train", LABEL_COLUMN)
     val = load_split(processed_root, dataset, "val", LABEL_COLUMN)
     split_info = load_split_info(processed_root, dataset)
+    variant = ""
+    if augment_per_intent > 0:
+        # hand-written realistic phrasings, TRAIN split only; probe texts are never included
+        probes = pd.read_csv(probe_path, encoding="utf-8")
+        extra = build_augmentation(augment_per_intent, seed, drop_texts=probes["text"])
+        train = pd.concat([train[["text", LABEL_COLUMN]], extra], ignore_index=True)
+        variant = "_aug"
 
     started = time.perf_counter()
     model = IntentClassifier(model=model_kind, c=c, seed=seed, n_estimators=n_estimators).fit(
@@ -57,19 +70,20 @@ def run_training(
 
     models_root.mkdir(parents=True, exist_ok=True)
     tag = {"logreg": "tfidf_lr", "xgboost": "tfidf_xgb"}[model_kind]
-    model_path = model.save(models_root / f"intent_{tag}_{dataset}.joblib")
-    report_path = models_root / f"intent_{tag}_{dataset}.val_report.json"
+    model_path = model.save(models_root / f"intent_{tag}_{dataset}{variant}.joblib")
+    report_path = models_root / f"intent_{tag}_{dataset}{variant}.val_report.json"
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     log_experiment_run(
         experiment=EXPERIMENT,
-        run_name=f"{tag}_{dataset}",
+        run_name=f"{tag}_{dataset}{variant}",
         params={
             **model.params,
             "dataset": dataset,
             "dataset_synthetic": split_info.get("synthetic"),
             "n_train": len(train),
             "n_val": len(val),
+            "augment_per_intent": augment_per_intent,
             "n_classes": len(model.classes_),
         },
         metrics=metrics,
@@ -91,6 +105,9 @@ def main() -> None:
     parser.add_argument("--c", type=float, default=10.0, help="logreg regularization strength")
     parser.add_argument("--n-estimators", type=int, default=200, help="xgboost trees")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--augment", type=int, default=0, help="hand-written rows per routed intent (0 = none)"
+    )
     parser.add_argument("--models-root", type=Path, default=Path("artifacts/models"))
     args = parser.parse_args()
     setup_logging("INFO")
@@ -102,6 +119,7 @@ def main() -> None:
             seed=args.seed,
             model_kind=args.model,
             n_estimators=args.n_estimators,
+            augment_per_intent=args.augment,
         )
     except DataError as exc:
         raise SystemExit(f"Error: {exc}") from exc
