@@ -61,5 +61,6 @@ same person, so treat this as optimistic; the augmented model's Bitext TEST scor
 - Refund policy numbers (30-day window, 14 days "not received") are demo defaults, not a real policy.
 - Security: one shared staff key (approver name is self-declared), customers identified only by order number
   plus email, no rate limiting, no HTTPS.
-- Cancellations only get a human decision; nothing cancels an order.
+- Cancellation is rule-checked, human-approved and recorded on the order, but there is no payment reversal, stock release
+  or customer notification (no such systems exist here).
 - No metrics endpoint or tracing.

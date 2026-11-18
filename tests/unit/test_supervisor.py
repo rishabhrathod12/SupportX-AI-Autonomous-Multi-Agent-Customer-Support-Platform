@@ -129,8 +129,14 @@ def test_an_ineligible_refund_is_explained_without_bothering_a_human() -> None:
 def test_cancellation_needs_a_human_but_no_refund_check() -> None:
     s = state(intent="cancel_order")
     assert decide_next(s).next == ORDER
-    s["order"] = {"order_number": "ORD-1"}
+    s["order"] = {"order_number": "ORD-1", "status": "placed", "shipment": None}
     assert decide_next(s).next == HUMAN_APPROVAL
+
+
+def test_a_cancellation_of_a_shipped_order_is_answered_without_a_human() -> None:
+    s = state(intent="cancel_order")
+    s["order"] = {"order_number": "ORD-1", "status": "shipped", "shipment": {"shipped_at": "x"}}
+    assert decide_next(s).next == RESPOND
 
 
 def test_decisions_do_not_modify_the_state() -> None:

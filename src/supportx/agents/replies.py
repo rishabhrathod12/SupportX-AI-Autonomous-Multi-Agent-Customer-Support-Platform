@@ -6,6 +6,7 @@ details, amounts, policy text or decisions. A future LLM version must keep this 
 
 from supportx.agents.state import TicketState
 from supportx.agents.supervisor import ROUTES
+from supportx.services.cancellation import evaluate_cancellation_for_state
 from supportx.services.refund import format_money
 
 HANDOFF = (
@@ -35,6 +36,15 @@ def compose_reply(state: TicketState) -> str:
         reasons = " ".join(refund.get("explanations", []))
         return f"I'm sorry, this order isn't eligible for a refund right now. {reasons}".strip()
 
+    order = state.get("order")
+    if approval is None and order is not None and _approval_kind(state) == "cancellation":
+        cancellation = evaluate_cancellation_for_state(order)
+        if not cancellation.eligible:
+            return (
+                f"I'm sorry, order {order['order_number']} can't be cancelled. "
+                f"{cancellation.explanation}"
+            )
+
     if approval is not None:
         kind = _approval_kind(state)
         label = APPROVAL_LABELS.get(kind, kind)
@@ -50,7 +60,6 @@ def compose_reply(state: TicketState) -> str:
             f"Reason: {approval.get('note', 'not provided')}"
         )
 
-    order = state.get("order")
     if order is not None:
         shipment = order.get("shipment")
         tracking = f" Tracking number: {shipment['tracking_number']}." if shipment else ""

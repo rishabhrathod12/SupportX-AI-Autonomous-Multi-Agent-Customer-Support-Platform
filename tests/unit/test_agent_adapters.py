@@ -91,6 +91,14 @@ def engine() -> Iterator[Engine]:
                     ),
                 )
             )
+        session.add(  # placed, not shipped: the only kind of order that can be cancelled
+            Order(
+                order_number="ORD-3003",
+                customer=customer,
+                status=OrderStatus.PLACED,
+                items=[OrderItem(sku="M", name="Mug", unit_price_cents=2500, quantity=1)],
+            )
+        )
     yield eng
     eng.dispose()
 
@@ -215,7 +223,7 @@ def test_cancellation_pauses_for_a_human_without_touching_refunds(
     engine: Engine, retriever: Retriever
 ) -> None:
     outcome = start_ticket(
-        make_graph(engine, retriever), "c", "Please cancel my order", EMAIL, "ORD-1001"
+        make_graph(engine, retriever), "c", "Please cancel my order", EMAIL, "ORD-3003"
     )
     assert outcome.status == "awaiting_approval"
     assert (
@@ -270,4 +278,4 @@ def test_the_order_agent_turns_database_trouble_into_a_retryable_error() -> None
 
 def test_database_count_helper_sanity(engine: Engine) -> None:
     with session_scope(engine) as session:
-        assert session.scalar(select(func.count()).select_from(Order)) == 2
+        assert session.scalar(select(func.count()).select_from(Order)) == 3

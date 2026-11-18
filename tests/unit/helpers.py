@@ -70,6 +70,15 @@ def make_engine() -> Engine:
                     ),
                 )
             )
+        for number in ("ORD-3003", "ORD-4004", "ORD-5005"):  # placed, not shipped: cancellable
+            session.add(
+                Order(
+                    order_number=number,
+                    customer=customer,
+                    status=OrderStatus.PLACED,
+                    items=[OrderItem(sku="M", name="Mug", unit_price_cents=2500, quantity=1)],
+                )
+            )
     return engine
 
 

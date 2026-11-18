@@ -172,7 +172,12 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       TEST results, reference LogReg C=10, scored once: Bitext acc 0.993 / macro-F1 0.993 (n=2,427); Banking77 acc 0.897 /
       macro-F1 0.897 (n=3,080). Consistent with validation. The test split is now spent for this model: do not tune on it.
 - [ ] Paused tickets now persist in SQLite; several server processes would need a PostgreSQL saver.
-- [ ] Cancellations only get a human decision here; nothing actually cancels an order yet (no cancellation rules/workflow).
+- [x] Cancellations (Phase 7.3, 2026-11-18): `supportx.services.cancellation` - pure rule (only a placed, unshipped order can be
+      cancelled; DEMO DEFAULT matching `cancellation_policy.md`), denied at once with a reason (no human asked), otherwise paused
+      for a human; on approval the order is really set to CANCELLED, with `cancelled_at`/`cancelled_by` (migration 0002), the rule
+      is re-checked at approval time (order shipped meanwhile -> 409, staff can reject), and the step is idempotent after a crash.
+      Not checked: a PENDING refund on a cancelled order; no customer notification; no stock/payment reversal (no such systems).
+      Full suite 291 passed (one fixture count updated); ruff and mypy --strict clean; real-component run verified.
 - [ ] The stub agents are not wired to the real ML intent model, database services or retriever-in-API yet.
 - [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
       OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a

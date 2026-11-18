@@ -8,6 +8,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from supportx.services.cancellation import evaluate_cancellation_for_state
+
 MIN_CONFIDENCE = 0.6  # default: below this we do not trust the intent and hand over to a human
 MAX_STEPS = 12  # loop guard: a ticket that needs more supervisor turns is escalated
 
@@ -105,6 +107,10 @@ def decide_next(state: Mapping[str, Any], min_confidence: float = MIN_CONFIDENCE
         if "refund" not in state:
             return Decision(REFUND)
         if not state["refund"].get("eligible"):
+            return Decision(RESPOND)  # explain why; no human decision needed
+
+    if route.approval_kind == "cancellation" and "approval" not in state:
+        if not evaluate_cancellation_for_state(state["order"]).eligible:
             return Decision(RESPOND)  # explain why; no human decision needed
 
     if route.approval_kind and "approval" not in state:

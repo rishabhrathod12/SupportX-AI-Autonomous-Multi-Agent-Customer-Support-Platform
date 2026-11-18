@@ -31,6 +31,7 @@ ORDERS: dict[str, dict[str, Any]] = {
         "shipment": {"tracking_number": "T2"},
         "refund_eligible": False,
     },
+    "ORD-3003": {"email": EMAIL, "status": "placed", "shipment": None},
 }
 FAST_RETRY = RetryPolicy(max_attempts=3, initial_interval=0.01, retry_on=ExternalServiceError)
 
@@ -186,13 +187,23 @@ def test_an_ineligible_refund_is_explained_with_no_human_step(
 
 
 def test_a_cancellation_also_needs_a_human(graph: CompiledStateGraph[Any, Any, Any, Any]) -> None:
-    first = start_ticket(graph, "c1", "Please cancel my order ORD-1001", EMAIL, "ORD-1001")
+    first = start_ticket(graph, "c1", "Please cancel my order ORD-3003", EMAIL, "ORD-3003")
     assert first.status == "awaiting_approval"
     assert first.approval_request is not None
     assert first.approval_request["kind"] == "cancellation"
     assert first.approval_request["amount_cents"] is None
     done = resume_ticket(graph, "c1", HumanDecision(approved=True, approver="agent.jane"))
     assert done.state["response"] == "Good news: our team approved your cancellation request."
+
+
+def test_a_shipped_order_cannot_be_cancelled_and_no_human_is_asked(
+    graph: CompiledStateGraph[Any, Any, Any, Any],
+) -> None:
+    outcome = start_ticket(graph, "c2", "Please cancel my order ORD-1001", EMAIL, "ORD-1001")
+    assert outcome.status == "completed"
+    assert "can't be cancelled" in outcome.state["response"]
+    assert "already shipped" in outcome.state["response"]
+    assert not any("human_approval" in step for step in outcome.state["trace"])
 
 
 def test_tickets_are_independent_and_resumable_in_any_order(

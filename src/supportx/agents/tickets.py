@@ -35,6 +35,7 @@ from supportx.db.repositories import RefundRepository, TicketRepository, to_utc
 from supportx.ml import IntentClassifier
 from supportx.rag import Retriever
 from supportx.services import RefundPolicy, RefundWorkflow
+from supportx.services.cancellation import CancellationWorkflow
 
 logger = get_logger(__name__)
 Graph = CompiledStateGraph[Any, Any, Any, Any]
@@ -128,8 +129,15 @@ class TicketService:
             if ticket.status is not TicketStatus.AWAITING_APPROVAL:
                 raise WorkflowError(f"Ticket {ticket_id} is not waiting for a decision.")
             refund_id = ticket.refund_request_id if ticket.approval_kind == "refund" else None
+            cancel_target = (
+                (ticket.order_number, ticket.customer_email)
+                if ticket.approval_kind == "cancellation" and decision.approved
+                else None
+            )
         if refund_id is not None:
             self._record_refund_decision(refund_id, decision)  # step 1 (idempotent)
+        if cancel_target is not None:
+            self._cancel_order(cancel_target, decision)  # step 1 (idempotent)
         return self._resume(ticket_id, decision)  # step 2
 
     def decide_refund(self, refund_id: int, decision: HumanDecision) -> TicketView | None:
@@ -159,6 +167,13 @@ class TicketService:
                     f"Refund request {refund_id} was already {request.status.value}; "
                     f"it cannot be {target.value}."
                 )
+
+    def _cancel_order(self, target: tuple[str | None, str | None], decision: HumanDecision) -> None:
+        order_number, email = target
+        if not order_number or not email:  # cannot happen: the workflow needs both to pause
+            raise WorkflowError("The ticket has no verified order to cancel.")
+        with session_scope(self._engine) as session:
+            CancellationWorkflow(session).cancel(order_number, email, decision.approver)
 
     def _resume(self, ticket_id: str, decision: HumanDecision) -> TicketView:
         try:

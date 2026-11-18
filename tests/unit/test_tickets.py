@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,16 @@ from supportx.core import (
     WorkflowError,
 )
 from supportx.data.sample import generate_sample_tickets
-from supportx.db import RefundRequest, RefundStatus, Ticket, TicketStatus, session_scope
+from supportx.db import (
+    Order,
+    OrderStatus,
+    RefundRequest,
+    RefundStatus,
+    Shipment,
+    Ticket,
+    TicketStatus,
+    session_scope,
+)
 from supportx.ml import IntentClassifier
 from supportx.rag import Retriever
 from tests.unit.helpers import EMAIL, POLICIES, make_engine, make_service, sqlite_saver
@@ -198,7 +208,7 @@ def test_a_failed_resume_says_the_decision_is_saved_and_a_retry_works(
 def test_cancellation_tickets_have_no_refund_to_update(
     service: TicketService, engine: Engine
 ) -> None:
-    view = service.submit("Please cancel my order", EMAIL, "ORD-1001")
+    view = service.submit("Please cancel my order", EMAIL, "ORD-3003")
     assert view.status is TicketStatus.AWAITING_APPROVAL and view.approval_kind == "cancellation"
     done = service.decide_ticket(view.ticket_id, APPROVE)
     assert done.response == "Good news: our team approved your cancellation request."
@@ -305,3 +315,78 @@ def test_the_production_service_explains_what_is_missing(engine: Engine, tmp_pat
     )
     with pytest.raises(ConfigurationError, match="Policy documents folder not found"):
         build_ticket_service(settings, engine)
+
+
+# ---------------------------------------------------------------- cancellations
+def order_row(engine: Engine, number: str) -> Order:
+    with session_scope(engine) as session:
+        order = session.scalars(select(Order).where(Order.order_number == number)).one()
+        return order
+
+
+def test_an_approved_cancellation_really_cancels_the_order(
+    service: TicketService, engine: Engine
+) -> None:
+    view = service.submit("Please cancel my order ORD-3003", EMAIL)
+    assert view.status is TicketStatus.AWAITING_APPROVAL and view.approval_kind == "cancellation"
+    assert (
+        order_row(engine, "ORD-3003").status is OrderStatus.PLACED
+    )  # nothing yet: a person decides
+    done = service.decide_ticket(view.ticket_id, APPROVE)
+    assert done.status is TicketStatus.COMPLETED
+    assert done.response == "Good news: our team approved your cancellation request."
+    order = order_row(engine, "ORD-3003")
+    assert order.status is OrderStatus.CANCELLED and order.cancelled_by == "agent.jane"
+
+
+def test_a_rejected_cancellation_leaves_the_order_alone(
+    service: TicketService, engine: Engine
+) -> None:
+    view = service.submit("Please cancel my order ORD-4004", EMAIL)
+    done = service.decide_ticket(view.ticket_id, REJECT)
+    assert "could not approve" in (done.response or "")
+    order = order_row(engine, "ORD-4004")
+    assert order.status is OrderStatus.PLACED and order.cancelled_by is None
+
+
+def test_a_shipped_order_is_refused_at_once_without_a_ticket_waiting(
+    service: TicketService,
+) -> None:
+    view = service.submit("Please cancel my order ORD-1001", EMAIL)
+    assert view.status is TicketStatus.COMPLETED and not view.escalated
+    assert "can't be cancelled" in (view.response or "")
+    assert service.list_awaiting() == []
+
+
+def test_if_the_order_ships_while_waiting_the_approval_is_refused_and_the_ticket_stays_open(
+    service: TicketService, engine: Engine
+) -> None:
+    view = service.submit("Please cancel my order ORD-5005", EMAIL)
+    with session_scope(engine) as session:
+        order = session.scalars(select(Order).where(Order.order_number == "ORD-5005")).one()
+        order.shipment = Shipment(
+            carrier="DemoPost",
+            tracking_number="T",
+            shipped_at=datetime.now(UTC) - timedelta(hours=2),
+        )
+    with pytest.raises(WorkflowError, match="can no longer be cancelled"):
+        service.decide_ticket(view.ticket_id, APPROVE)
+    assert order_row(engine, "ORD-5005").status is OrderStatus.PLACED
+    assert [t.ticket_id for t in service.list_awaiting()] == [view.ticket_id]
+    done = service.decide_ticket(view.ticket_id, REJECT)  # staff can still close it by rejecting
+    assert done.status is TicketStatus.COMPLETED
+
+
+def test_a_retried_approval_after_a_crash_does_not_fail(
+    service: TicketService, engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    view = service.submit("Please cancel my order ORD-3003", EMAIL)
+    monkeypatch.setattr(
+        TicketService, "_resume", lambda *a, **k: (_ for _ in ()).throw(ExternalServiceError("x"))
+    )
+    with pytest.raises(ExternalServiceError):
+        service.decide_ticket(view.ticket_id, APPROVE)  # order cancelled, ticket not resumed
+    assert order_row(engine, "ORD-3003").status is OrderStatus.CANCELLED
+    monkeypatch.undo()
+    done = service.decide_ticket(view.ticket_id, APPROVE)  # same decision again: safe
+    assert done.status is TicketStatus.COMPLETED
