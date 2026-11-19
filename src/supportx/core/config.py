@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     refund_not_received_after_days: int = Field(default=14, gt=0, le=3650)  # days after shipping
     business_rules_confirmed: bool = False
 
+    # Payment / inventory / notification follow-ups (transactional outbox). "disabled": events are
+    # saved but nothing delivers them. "mock": the worker uses MOCK adapters (nothing real happens).
+    integrations_mode: Literal["disabled", "mock"] = "disabled"
+    outbox_max_attempts: int = Field(default=5, ge=1, le=50)
+
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.
     # 0.6 (not 0.4): measured on out-of-domain messages it catches many more confidently-wrong cases
     # for about 1% extra escalations on in-domain validation data (see docs/EXPERIMENTS.md, E5).

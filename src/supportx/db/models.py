@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from supportx.db.enums import OrderStatus, RefundReason, RefundStatus, TicketStatus
+from supportx.db.enums import OrderStatus, OutboxStatus, RefundReason, RefundStatus, TicketStatus
 
 
 def _now() -> datetime:
@@ -176,3 +176,22 @@ class StaffKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class OutboxEvent(Base):
+    """Follow-up work saved with the change that caused it. See supportx.integrations.outbox."""
+
+    __tablename__ = "outbox_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    payload: Mapped[str] = mapped_column(Text)  # JSON: ids, order numbers, amounts; no emails
+    status: Mapped[OutboxStatus] = mapped_column(_enum(OutboxStatus), index=True)
+    attempts: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(200))
+    provider_reference: Mapped[str | None] = mapped_column(String(80))
+    is_mock: Mapped[bool] = mapped_column(default=False)  # True: a MOCK adapter handled it

@@ -201,6 +201,13 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       if the key table is down. 14 new tests; 225 related tests pass; the full suite was NOT re-run. Not done: HTTPS,
       stronger customer authentication, distributed rate limiting, audit of failed logins, tamper-proof audit storage,
       authenticated approver for the shared key, authorization checks on agent tool calls, last-used tracking for keys.
+- [x] Outbox + MOCK integrations (2026-11-19, master-prompt Phase 8): `supportx.integrations` (ports, labeled mocks,
+      transactional outbox, dispatcher with idempotency keys, exponential backoff, dead-letter + requeue, worker CLI),
+      `outbox_events` table (migration 0004), hooks on approved/rejected refunds and approved cancellations,
+      `GET /staff/outbox`, `POST /staff/outbox/{id}/retry`. 16 new tests. NO REAL PROVIDER exists: with
+      `INTEGRATIONS_MODE=mock` nothing real is paid, released or sent; with `disabled` (default) events wait. Not done: a
+      real payment/inventory/notification adapter, PostgreSQL run of `SKIP LOCKED` delivery, a periodic worker in compose,
+      alerting on dead events, payment records (a cancellation refunds the order total on the assumption it was paid).
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

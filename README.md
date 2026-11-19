@@ -44,6 +44,7 @@ still starts and the ticket endpoints answer 503.
 | `APP_ENV` | `development` creates tables and serves `/demo`; `production` hides docs and `/demo` and expects migrations |
 | `REFUND_RETURN_WINDOW_DAYS`, `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` | refund rule numbers (DEMO defaults 30 / 14 / `demo-1`); every refund decision records the version |
 | `BUSINESS_RULES_CONFIRMED` | set `true` only after the numbers are your real policy; production start-up logs a warning while it is `false`; `GET /staff/model-info` shows the live rules |
+| `INTEGRATIONS_MODE`, `OUTBOX_MAX_ATTEMPTS` | `disabled` (default) or `mock` for the outbox worker; attempts before an event goes `dead` (5) |
 | `INTENT_MODEL_PATH`, `POLICY_DOCS_DIR`, `CHECKPOINT_DB_PATH` | model file, policy folder, where paused tickets are saved |
 | `INTENT_MIN_CONFIDENCE` | below this a ticket goes to a human (default 0.6) |
 | `RATE_LIMIT_PER_MINUTE`, `AUTH_FAILURES_PER_MINUTE` | per-client limits (120 / 10; 0 = off) |
@@ -62,6 +63,23 @@ still starts and the ticket endpoints answer 503.
 | `GET /staff/refunds/pending`, `POST /staff/refunds/{id}/approve` or `/reject` | staff | the same decisions by refund id (reject needs a note) |
 | `GET /staff/model-info` | staff | which intent model file (SHA-256) and settings are serving |
 | `GET /staff/audit?limit=&action=&target_id=` | staff | append-only trail: refund requested/approved/rejected, order cancelled, ticket decided, staff keys created/revoked (newest first) |
+
+### Payment, stock and customer-message follow-ups (outbox; MOCK adapters only)
+
+An approved refund, a rejected refund and an approved cancellation each save follow-up events in the SAME database
+transaction as the decision (`outbox_events`): refund the payment, release the stock, notify the customer. A
+separate worker delivers them with idempotency keys, retries with exponential backoff, and marks events that keep
+failing as `dead` for a person to look at.
+
+```powershell
+$env:INTEGRATIONS_MODE = "mock"      # default "disabled": events are saved but nothing delivers them
+python -m supportx.integrations.worker --once                  # or: --loop --interval 10
+```
+
+**Only MOCK adapters exist.** In `mock` mode nothing real is paid, released or sent, and every delivered event is
+labeled `is_mock`. A real provider must implement the protocols in `src/supportx/integrations/ports.py` and honour
+the idempotency key. Staff see the queue at `GET /staff/outbox?status=dead` and requeue with
+`POST /staff/outbox/{id}/retry`. Delivery is at least once (a crash can repeat a call, which the key makes harmless).
 
 ### Staff keys without a restart
 
@@ -104,8 +122,8 @@ run**. Mount your trained model at `artifacts/models`.
 
 Customers are identified only by order number + email; no HTTPS; rate limits are in memory and per process (also
 limit at a proxy); the audit log lives in the same database (anyone with write access to it can alter it); the
-shared `STAFF_API_KEY` still lets the caller name the approver; nothing reverses a payment, releases stock or
-notifies the customer. Details and the open list: `PROJECT_STATUS.md`.
+shared `STAFF_API_KEY` still lets the caller name the approver; there is NO real payment, inventory or notification
+provider (mock adapters only), so no money moves, no stock changes and no customer is contacted. Details and the open list: `PROJECT_STATUS.md`.
 
 ## Documentation
 - `docs/ARCHITECTURE.md` - architecture and design decisions

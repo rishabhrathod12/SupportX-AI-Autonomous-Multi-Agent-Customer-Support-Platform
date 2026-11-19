@@ -11,6 +11,7 @@ from supportx.core import NotFoundError, WorkflowError, get_logger
 from supportx.db.enums import RefundReason, RefundStatus
 from supportx.db.models import Order, RefundRequest
 from supportx.db.repositories import OrderRepository, RefundRepository, to_utc
+from supportx.integrations.outbox import enqueue_refund_notice, enqueue_refund_payment
 from supportx.services.audit import record_audit
 from supportx.services.orders import ensure_owner, find_order_for_customer
 from supportx.services.refund import (
@@ -188,6 +189,18 @@ class RefundWorkflow:
                 "note": request.decision_note,
             },
             request.decided_at,
+        )
+        customer_id = request.order.customer_id
+        if status is RefundStatus.APPROVED:  # saved with the decision; delivered by the worker
+            enqueue_refund_payment(
+                self._session, request.id, request.order.order_number, request.amount_cents
+            )
+        enqueue_refund_notice(
+            self._session,
+            request.id,
+            customer_id,
+            request.order.order_number,
+            status is RefundStatus.APPROVED,
         )
         logger.info("Refund request %d %s by %s", request.id, status.value, request.decided_by)
         return request

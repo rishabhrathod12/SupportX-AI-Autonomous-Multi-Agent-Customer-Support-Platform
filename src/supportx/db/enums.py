@@ -23,6 +23,12 @@ class TicketStatus(StrEnum):
     COMPLETED = "completed"  # the customer has a reply (an automated answer or a handoff)
 
 
+class OutboxStatus(StrEnum):
+    PENDING = "pending"  # waiting to be delivered (or to be retried)
+    SENT = "sent"  # the provider accepted it
+    DEAD = "dead"  # gave up: a person must look (then it can be requeued)
+
+
 class RefundStatus(StrEnum):
     PENDING_APPROVAL = "pending_approval"  # waiting for a human decision
     APPROVED = "approved"

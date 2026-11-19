@@ -1,12 +1,19 @@
 """Database layer: ORM models, enums, engine/session helpers."""
 
-from supportx.db.enums import OrderStatus, RefundReason, RefundStatus, TicketStatus
+from supportx.db.enums import (
+    OrderStatus,
+    OutboxStatus,
+    RefundReason,
+    RefundStatus,
+    TicketStatus,
+)
 from supportx.db.models import (
     AuditLog,
     Base,
     Customer,
     Order,
     OrderItem,
+    OutboxEvent,
     RefundRequest,
     Shipment,
     StaffKey,
@@ -21,6 +28,8 @@ __all__ = [
     "Order",
     "OrderItem",
     "OrderStatus",
+    "OutboxEvent",
+    "OutboxStatus",
     "RefundReason",
     "RefundRequest",
     "RefundStatus",

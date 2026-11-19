@@ -20,6 +20,7 @@ from supportx.core import WorkflowError, get_logger
 from supportx.db.enums import OrderStatus
 from supportx.db.models import Order
 from supportx.db.repositories import OrderRepository
+from supportx.integrations.outbox import enqueue_cancellation_effects
 from supportx.services.audit import record_audit
 from supportx.services.orders import ensure_owner
 
@@ -86,5 +87,6 @@ class CancellationWorkflow:
         record_audit(
             self._session, approver, "order.cancelled", "order", order.order_number, None, now
         )
+        enqueue_cancellation_effects(self._session, order)  # same transaction: saved together
         logger.info("Order %s cancelled, approved by %s", order.order_number, approver)
         return order

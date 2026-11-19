@@ -17,13 +17,16 @@ from supportx.api.deps import (
 from supportx.api.schemas import (
     ApproveIn,
     AuditOut,
+    OutboxOut,
     RefundRequestOut,
     RejectIn,
     StaffTicketOut,
     TicketDecisionIn,
 )
 from supportx.core import NotFoundError
+from supportx.db import OutboxEvent, OutboxStatus
 from supportx.db.repositories import RefundRepository, to_utc
+from supportx.integrations.outbox import list_events, requeue
 from supportx.services import list_audit
 
 router = APIRouter(prefix="/staff", tags=["staff"], dependencies=[StaffDep])
@@ -42,6 +45,7 @@ def model_info(request: Request) -> dict[str, object]:
         "app_version": request.app.version,
         "app_env": settings.app_env,
         "intent_min_confidence": settings.intent_min_confidence,
+        "integrations_mode": settings.integrations_mode,
         "business_rules": {
             "version": settings.business_rules_version,
             "refund_return_window_days": settings.refund_return_window_days,
@@ -50,6 +54,38 @@ def model_info(request: Request) -> dict[str, object]:
         },
         "intent_model": service.model_info if service is not None else None,
     }
+
+
+def _outbox_out(row: OutboxEvent) -> OutboxOut:
+    return OutboxOut(
+        id=row.id,
+        event_type=row.event_type,
+        idempotency_key=row.idempotency_key,
+        status=row.status.value,
+        attempts=row.attempts,
+        created_at=to_utc(row.created_at) or row.created_at,
+        next_attempt_at=to_utc(row.next_attempt_at) or row.next_attempt_at,
+        processed_at=to_utc(row.processed_at),
+        last_error=row.last_error,
+        provider_reference=row.provider_reference,
+        is_mock=row.is_mock,
+    )
+
+
+@router.get("/outbox", response_model=list[OutboxOut])
+def outbox_events(
+    session: SessionDep, status: OutboxStatus | None = None, limit: int = 50
+) -> list[OutboxOut]:
+    """Follow-up work: refund payments, stock releases, customer messages. `dead` needs a person."""
+    return [_outbox_out(r) for r in list_events(session, status, limit)]
+
+
+@router.post("/outbox/{event_id}/retry", response_model=OutboxOut)
+def retry_outbox_event(event_id: int, session: SessionDep, staff: StaffIdentityDep) -> OutboxOut:
+    """Requeue a DEAD event after the cause was fixed."""
+    row = requeue(session, event_id, resolve_approver(staff, "shared-key"))
+    session.commit()
+    return _outbox_out(row)
 
 
 @router.get("/audit", response_model=list[AuditOut])

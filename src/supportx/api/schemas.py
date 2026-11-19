@@ -151,3 +151,17 @@ class AuditOut(BaseModel):
     target_type: str
     target_id: str
     detail: dict[str, Any] | None
+
+
+class OutboxOut(BaseModel):
+    id: int
+    event_type: str
+    idempotency_key: str
+    status: str
+    attempts: int
+    created_at: datetime
+    next_attempt_at: datetime
+    processed_at: datetime | None
+    last_error: str | None
+    provider_reference: str | None
+    is_mock: bool

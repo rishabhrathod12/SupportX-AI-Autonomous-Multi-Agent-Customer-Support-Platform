@@ -112,8 +112,31 @@ escalation reason). The ticket id is also the workflow's thread id. Money is int
 timezone-aware UTC. `audit_logs` (append-only: actor, action, target, JSON detail with ids and numbers only, never customer emails; written
 in the same transaction as the change it records) and `staff_keys` (SHA-256 hash of each key, optional expiry,
 revocation time; keys can be created, rotated and revoked without a restart). Schema changes go through Alembic
-(`0001` initial, `0002` cancellation columns, `0003` audit log and staff keys); a test checks the migrations match the models. There is no separate approvals table: decisions live on the refund request
+(`0001` initial, `0002` cancellation columns, `0003` audit log and staff keys, `0004` outbox events); a test checks the
+migrations match the models. There is no separate approvals table: decisions live on the refund request
 and on the order.
+
+### Outbox and integrations (`supportx.integrations`)
+
+```
+approve/reject refund, approve cancellation
+        |  same database transaction as the decision
+        v
+ outbox_events  (PENDING)  <-- idempotency key: refund-{id}-payment, cancel-{order}-stock, ...
+        |
+ worker (`python -m supportx.integrations.worker`)  --calls-->  PaymentProvider / InventoryService / Notifier
+        |   success -> SENT (+ provider reference, is_mock)      (protocols in integrations/ports.py)
+        |   transient error -> PENDING again with exponential backoff
+        |   permanent error, or max attempts -> DEAD (staff can requeue)    every outcome writes an audit row
+```
+
+Why an outbox: a refund decision must never be saved without its follow-up, nor lost or blocked because a provider is
+down. Delivery is at least once; the idempotency key makes a repeated call harmless. Only MOCK adapters exist
+(`integrations/mocks.py`, labeled `is_mock`); a real provider implements the protocols. With `INTEGRATIONS_MODE=disabled`
+events are still saved but the worker refuses to run. Event payloads hold ids, order numbers and amounts, never
+emails; the notifier resolves contact details itself. The delivery step calls the provider while holding the event's
+row lock (`FOR UPDATE SKIP LOCKED` on PostgreSQL), so several workers do not double-deliver; this is untested on
+PostgreSQL.
 
 ## 7. Testing strategy (as built)
 
@@ -130,5 +153,6 @@ and on the order.
 LLM reply generation and its `llm` wrapper (needs an API key); semantic embeddings and hybrid retrieval; a real
 sentiment model; priority, routing and resolution-time models; `ticket_messages`; audit of failed staff logins and
 of customer-side events beyond refund requests; a write-once audit sink; PostgreSQL checkpointer for several
-processes; HTTPS and stronger customer authentication; an authenticated approver for the shared key; payment, inventory and notification integrations; Docker image and PostgreSQL runs
+processes; HTTPS and stronger customer authentication; an authenticated approver for the shared key; REAL payment, inventory and notification providers (the outbox and
+interfaces exist, only mocks implement them); Docker image and PostgreSQL runs
 (the files exist but were never built or run). See `PROJECT_STATUS.md`.
