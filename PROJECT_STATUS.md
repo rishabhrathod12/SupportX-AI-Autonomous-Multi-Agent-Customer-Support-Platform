@@ -208,6 +208,12 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       `INTEGRATIONS_MODE=mock` nothing real is paid, released or sent; with `disabled` (default) events wait. Not done: a
       real payment/inventory/notification adapter, PostgreSQL run of `SKIP LOCKED` delivery, a periodic worker in compose,
       alerting on dead events, payment records (a cancellation refunds the order total on the assumption it was paid).
+- [x] Retrieval metrics + hybrid experiment (2026-11-19, master-prompt Phase 3 part): `supportx.rag.metrics` (Recall@K,
+      Precision@K, MRR, abstention), `supportx.rag.hybrid` (BM25 + char n-gram + RRF; NOT adopted: it did not beat the baseline
+      on the holdout), source filter on `Retriever.retrieve`, setting `RETRIEVAL_MIN_SCORE` (default unchanged 0.1).
+      KEY FINDING (E9): at 0.1 the system answers 100% of unanswerable questions; lexical scores cannot separate them cleanly,
+      so the cutoff is a trade-off (about 0.2 answers 70-79% of real questions and refuses 83% of unanswerable). Needs your
+      choice. Still open: semantic embeddings (OpenAI key or PyTorch), wiring the source filter to the intent.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

@@ -44,6 +44,7 @@ still starts and the ticket endpoints answer 503.
 | `APP_ENV` | `development` creates tables and serves `/demo`; `production` hides docs and `/demo` and expects migrations |
 | `REFUND_RETURN_WINDOW_DAYS`, `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` | refund rule numbers (DEMO defaults 30 / 14 / `demo-1`); every refund decision records the version |
 | `BUSINESS_RULES_CONFIRMED` | set `true` only after the numbers are your real policy; production start-up logs a warning while it is `false`; `GET /staff/model-info` shows the live rules |
+| `RETRIEVAL_MIN_SCORE` | best-passage score needed to quote policy text, else a person takes over (default 0.1 = almost always answers; about 0.2 is balanced on the hand-written questions; trade-off in `docs/EXPERIMENTS.md`, E9) |
 | `INTEGRATIONS_MODE`, `OUTBOX_MAX_ATTEMPTS` | `disabled` (default) or `mock` for the outbox worker; attempts before an event goes `dead` (5) |
 | `INTENT_MODEL_PATH`, `POLICY_DOCS_DIR`, `CHECKPOINT_DB_PATH` | model file, policy folder, where paused tickets are saved |
 | `INTENT_MIN_CONFIDENCE` | below this a ticket goes to a human (default 0.6) |
@@ -107,6 +108,7 @@ ruff check src tests migrations ; ruff format --check src tests migrations
 mypy --strict src
 python -m supportx.ml.probe_eval artifacts/models/intent_tfidf_lr_bitext_aug.joblib --split dev --show-failures
 python -m supportx.rag.evaluate --split dev --show-misses
+python -m supportx.rag.metrics --split dev --legacy --show-misses   # Recall@K, Precision@K, MRR, false-answer rate
 ```
 
 The holdout probe/retrieval sets and the test split of the datasets were each scored once for the reported numbers;

@@ -1,7 +1,7 @@
 """Turn text into vectors. All embedders return L2-normalized float32 rows, so a dot product
 equals cosine similarity (which is what the FAISS inner-product index computes)."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Protocol, Self
 
 import numpy as np
@@ -27,6 +27,18 @@ def light_stem(word: str) -> str:
     return word
 
 
+def make_analyzer(stem: bool = True, drop_stop_words: bool = False) -> Callable[[str], list[str]]:
+    """Text -> word tokens, the way the lexical rankers see it (shared so they all agree)."""
+
+    def analyze(text: str) -> list[str]:
+        words = tokenize(text)
+        if drop_stop_words:
+            words = [w for w in words if w not in ENGLISH_STOP_WORDS]
+        return [light_stem(w) for w in words] if stem else words
+
+    return analyze
+
+
 class Embedder(Protocol):
     @property
     def dim(self) -> int: ...
@@ -45,14 +57,8 @@ class TfidfEmbedder:
     """
 
     def __init__(self, stem: bool = False, drop_stop_words: bool = False) -> None:
-        def analyze(text: str) -> list[str]:
-            words = tokenize(text)
-            if drop_stop_words:
-                words = [w for w in words if w not in ENGLISH_STOP_WORDS]
-            return [light_stem(w) for w in words] if stem else words
-
         self._vectorizer = TfidfVectorizer(
-            tokenizer=analyze,
+            tokenizer=make_analyzer(stem, drop_stop_words),
             lowercase=False,
             token_pattern=None,
             ngram_range=(1, 2),

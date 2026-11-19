@@ -32,6 +32,10 @@ class VectorIndex:
     def dim(self) -> int:
         return self._dim
 
+    @property
+    def chunks(self) -> Sequence[Chunk]:
+        return self._chunks
+
     def add(self, chunks: Sequence[Chunk], vectors: np.ndarray) -> None:
         if vectors.shape != (len(chunks), self._dim):
             raise ValueError(

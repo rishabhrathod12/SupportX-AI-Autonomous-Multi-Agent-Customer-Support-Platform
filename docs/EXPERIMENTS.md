@@ -216,3 +216,59 @@ Dev (n=20; one question = 5 points, so differences of 1-2 questions are noise):
   still retrieve the wrong passage (lexical matching cannot connect "on its way" to "shipped"); "answered" is 100%
   because the 0.1 minimum score never rejected any of these on-topic questions (no off-topic questions were scored here;
   a gibberish query is rejected, see tests). A semantic embedding model is the real fix (needs an API key or PyTorch).
+
+### E9 - Retrieval ranking metrics, hybrid lexical rankers, and when to hand over (hand-written questions)
+Run date: 2026-11-19. Questions: `data/sample/retrieval_eval_v2.csv`, written and committed before any change: `dev` 21
+(15 answerable, 6 the documents CANNOT answer) and `holdout` 20 (14 answerable, 6 unanswerable), scored once. The 32
+questions from E8 count as extra DEV material (their holdout was already spent). A question may have several relevant
+sections. Code: `supportx.rag.metrics` (Recall@K, Precision@K, Hit@K, MRR; for unanswerable questions the false-answer
+rate), `supportx.rag.hybrid` (BM25 and character n-gram rankers fused by reciprocal rank fusion). Everything is LEXICAL:
+no semantic ranker exists yet (needs an OpenAI key or PyTorch); the hybrid class has a slot for one.
+
+Dev (21 + 32 = 53 questions, 47 answerable):
+
+| Ranker | Recall@1 | Recall@3 | Precision@3 | MRR |
+|---|---|---|---|---|
+| Word TF-IDF (serving baseline) | 0.699 | 0.904 | 0.326 | 0.823 |
+| + BM25 | 0.688 | 0.872 | 0.319 | 0.811 |
+| + character n-grams | 0.688 | 0.936 | 0.340 | 0.827 |
+| + BM25 + character n-grams | 0.730 | 0.936 | 0.340 | 0.849 |
+
+(Precision@3 cannot exceed |relevant|/3, so it is low for any single-section question.) One question is about 2 points,
+so the dev differences are 1-2 questions: noise.
+
+HOLDOUT (14 answerable, scored once; the adoption rule was fixed beforehand: adopt the hybrid only if it also wins here):
+
+| Ranker | Recall@1 | Recall@3 | Precision@3 | MRR |
+|---|---|---|---|---|
+| Word TF-IDF baseline | 0.714 | 0.786 | 0.262 | 0.780 |
+| Hybrid (BM25 + char n-grams) | 0.643 | 0.786 | 0.262 | 0.756 |
+
+**The hybrid did not win on the holdout, so it is NOT used in serving** (the code stays as an extension point for a future
+semantic ranker). Adding more lexical rankers to a 16-passage corpus does not help.
+
+**The important finding: the system almost never hands over.** With the old fixed cutoff (0.1) every unanswerable question is
+answered with some loosely related passage (false-answer rate 1.00 on dev and holdout). The cutoff can be raised, but lexical
+scores overlap too much for a clean line: unanswerable top scores reach 0.22 while answerable ones have a median of 0.26 and
+go down to 0.11. The trade-off on dev (baseline ranker; the hybrid was within 0.05 of it everywhere):
+
+| Cutoff | Real questions answered | Answered AND right | Unanswerable still answered (of 6) |
+|---|---|---|---|
+| 0.10 (old default) | 1.00 | 0.72 | 1.00 |
+| 0.15 | 0.89 | 0.70 | 0.67 |
+| 0.18 | 0.81 | 0.66 | 0.50 |
+| 0.20 | 0.70 | 0.55 | 0.17 |
+| 0.22 | 0.62 | 0.51 | 0.00 |
+| 0.25 | 0.53 | 0.49 | 0.00 |
+| 0.30 | 0.32 | 0.32 | 0.00 |
+
+Holdout, baseline: cutoff 0.10 answers 100% of real questions (71% right), false answers 100%; cutoff 0.20 answers 79% (64%
+right), false answers 17%. The cutoff is now a setting, `RETRIEVAL_MIN_SCORE`, **default unchanged at 0.1**; choosing is a
+product decision (staff time against quoting an irrelevant passage). Around 0.20 looks like the balanced region on this data.
+
+The five example questions today (top passages, baseline): "Can I cancel my order?" gets all three cancellation sections;
+"My package has not arrived" gets the two right sections; "Can I return a damaged product?" gets the right section;
+"What is your return policy?" is still wrong (right section "Return window" is third, 0.13); "How long does a refund take?"
+gets "How refunds are approved" (0.19), which says nothing about duration (the documents have no answer) and would be
+handed over at a cutoff of 0.20 or higher. Not built: semantic search; a metadata filter exists (`Retriever.retrieve(sources=...)`)
+but is not wired to the intent. Evidence is 53 + 20 hand-written questions over 3 demo documents: it shows direction, not production quality.

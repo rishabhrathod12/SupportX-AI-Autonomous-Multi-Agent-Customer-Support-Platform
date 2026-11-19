@@ -31,6 +31,7 @@ services:
       REFUND_RETURN_WINDOW_DAYS: ${REFUND_RETURN_WINDOW_DAYS:-30}
       REFUND_NOT_RECEIVED_AFTER_DAYS: ${REFUND_NOT_RECEIVED_AFTER_DAYS:-14}
       BUSINESS_RULES_CONFIRMED: ${BUSINESS_RULES_CONFIRMED:-false}
+      RETRIEVAL_MIN_SCORE: ${RETRIEVAL_MIN_SCORE:-0.1}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Tables come from Alembic migrations (run at container start), not from the app.
       APP_ENV: ${APP_ENV:-production}

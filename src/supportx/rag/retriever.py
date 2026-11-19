@@ -1,5 +1,6 @@
 """Find the policy passages that best answer a question."""
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,12 +72,28 @@ class Retriever:
         floor = hits[0].score * relative_cutoff
         return [hits[0]] + [h for h in hits[1:] if h.score >= floor]
 
-    def retrieve(self, query: str, k: int = 3, min_score: float = 0.0) -> list[RetrievedChunk]:
+    @property
+    def chunks(self) -> list[Chunk]:
+        """Every indexed chunk (read-only use: other rankers align with it by chunk id)."""
+        return list(self._index.chunks)
+
+    def retrieve(
+        self,
+        query: str,
+        k: int = 3,
+        min_score: float = 0.0,
+        sources: Collection[str] | None = None,
+    ) -> list[RetrievedChunk]:
         """Best chunks for a question. Chunks scoring below `min_score` are dropped, so
-        "no good answer in the documents" is a possible (and important) outcome."""
+        "no good answer in the documents" is a possible (and important) outcome.
+
+        `sources` restricts the search to those document files (metadata filter), e.g.
+        {"cancellation_policy.md"} when the intent is already known to be about cancelling."""
         vector = self._embedder.embed([query])[0]
-        return [
+        wanted = len(self._index) if sources is not None else k  # filter AFTER ranking everything
+        found = [
             RetrievedChunk(chunk, score)
-            for chunk, score in self._index.search(vector, k)
-            if score >= min_score and score > 0.0
+            for chunk, score in self._index.search(vector, wanted)
+            if score >= min_score and score > 0.0 and (sources is None or chunk.source in sources)
         ]
+        return found[:k]

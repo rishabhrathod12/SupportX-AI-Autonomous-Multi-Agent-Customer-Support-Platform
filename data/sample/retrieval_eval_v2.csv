@@ -1,0 +1,42 @@
+split,question,relevant
+dev,What is your return policy?,refund_policy.md::Return window
+dev,Can I return a damaged product?,refund_policy.md::Damaged or not as described
+dev,My package has not arrived,refund_policy.md::Orders that have not arrived;shipping_policy.md::Lost or delayed parcels
+dev,Can I cancel my order?,cancellation_policy.md::Cancelling before shipping;cancellation_policy.md::Cancelling after shipping;cancellation_policy.md::How to cancel
+dev,Do I need a photo to get a refund for a broken item?,refund_policy.md::Damaged or not as described
+dev,Does the 30 days start when I order or when it arrives?,refund_policy.md::Return window
+dev,What happens if my tracking page shows no updates?,shipping_policy.md::Lost or delayed parcels
+dev,Is express shipping available?,shipping_policy.md::Delivery times
+dev,Will I get an email with my tracking number?,shipping_policy.md::Tracking your order
+dev,Can I still change my address once it has been dispatched?,shipping_policy.md::Changing the delivery address
+dev,How do I ask for a refund if I never received my parcel?,refund_policy.md::Orders that have not arrived
+dev,Can I get my money back on a final sale item?,refund_policy.md::Final sale items
+dev,Can I send back something I bought by mistake?,refund_policy.md::Changed your mind
+dev,Will a person review my cancellation?,cancellation_policy.md::Cancelling before shipping;cancellation_policy.md::How to cancel
+dev,What do I need to tell you in order to cancel?,cancellation_policy.md::How to cancel
+dev,How long does a refund take?,NONE
+dev,Who pays for return shipping?,NONE
+dev,Do you ship to Australia?,NONE
+dev,What payment methods do you accept?,NONE
+dev,Can I change my password?,NONE
+dev,What are your opening hours?,NONE
+holdout,How many days do I have to send something back after it is delivered?,refund_policy.md::Return window
+holdout,My item is faulty. What should I do?,refund_policy.md::Damaged or not as described
+holdout,Can I return an item I just don't like?,refund_policy.md::Changed your mind
+holdout,Which items cannot be refunded?,refund_policy.md::Final sale items
+holdout,The tracking says delivered but I don't have it,refund_policy.md::Orders that have not arrived
+holdout,Does someone check my refund before it is paid?,refund_policy.md::How refunds are approved
+holdout,Can I have two open refund requests?,refund_policy.md::How refunds are approved
+holdout,I changed my mind about an order that has not shipped yet,cancellation_policy.md::Cancelling before shipping
+holdout,Can I cancel after it has been sent?,cancellation_policy.md::Cancelling after shipping
+holdout,How do I cancel?,cancellation_policy.md::How to cancel
+holdout,How long will standard delivery take?,shipping_policy.md::Delivery times
+holdout,Where can I follow my parcel?,shipping_policy.md::Tracking your order
+holdout,I typed the wrong street. Can you fix it?,shipping_policy.md::Changing the delivery address
+holdout,My parcel has been stuck for a week,shipping_policy.md::Lost or delayed parcels
+holdout,Do you offer gift wrapping?,NONE
+holdout,How do I reset my account password?,NONE
+holdout,What is the price of express shipping?,NONE
+holdout,Can I pay in instalments?,NONE
+holdout,How long until the money reaches my bank after a refund?,NONE
+holdout,Is there a store near me?,NONE

@@ -269,6 +269,8 @@ def build_ticket_service(
     retriever = Retriever.from_documents(docs_dir)
     connection = sqlite3.connect(settings.checkpoint_db_path, check_same_thread=False)
     saver = SqliteSaver(connection)
-    agents = build_real_agents(intent_model, retriever, engine, policy)
+    agents = build_real_agents(
+        intent_model, retriever, engine, policy, min_score=settings.retrieval_min_score
+    )
     graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
     return TicketService(engine, graph, info), connection

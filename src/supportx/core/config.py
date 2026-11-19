@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     integrations_mode: Literal["disabled", "mock"] = "disabled"
     outbox_max_attempts: int = Field(default=5, ge=1, le=50)
 
+    # A policy answer needs its best passage to score at least this (cosine, 0-1); else the ticket
+    # goes to a person ("no_policy_match"). 0.1 answers almost everything, including questions the
+    # documents cannot answer; higher values hand more to people. Trade-off: docs/EXPERIMENTS.md E9.
+    retrieval_min_score: float = Field(default=0.1, ge=0.0, le=1.0)
+
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.
     # 0.6 (not 0.4): measured on out-of-domain messages it catches many more confidently-wrong cases
     # for about 1% extra escalations on in-domain validation data (see docs/EXPERIMENTS.md, E5).
