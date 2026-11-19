@@ -38,6 +38,12 @@ def model_info(request: Request) -> dict[str, object]:
         "app_version": request.app.version,
         "app_env": settings.app_env,
         "intent_min_confidence": settings.intent_min_confidence,
+        "business_rules": {
+            "version": settings.business_rules_version,
+            "refund_return_window_days": settings.refund_return_window_days,
+            "refund_not_received_after_days": settings.refund_not_received_after_days,
+            "confirmed_as_real_policy": settings.business_rules_confirmed,
+        },
         "intent_model": service.model_info if service is not None else None,
     }
 

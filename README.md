@@ -42,6 +42,8 @@ still starts and the ticket endpoints answer 503.
 | `STAFF_API_KEYS` | personal staff keys `name:key,...` (keys 16+ chars); the recorded approver is the key's name |
 | `STAFF_API_KEY` | one shared staff key (the caller states the approver); unset and no personal keys = staff endpoints off |
 | `APP_ENV` | `development` creates tables and serves `/demo`; `production` hides docs and `/demo` and expects migrations |
+| `REFUND_RETURN_WINDOW_DAYS`, `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` | refund rule numbers (DEMO defaults 30 / 14 / `demo-1`); every refund decision records the version |
+| `BUSINESS_RULES_CONFIRMED` | set `true` only after the numbers are your real policy; production start-up logs a warning while it is `false`; `GET /staff/model-info` shows the live rules |
 | `INTENT_MODEL_PATH`, `POLICY_DOCS_DIR`, `CHECKPOINT_DB_PATH` | model file, policy folder, where paused tickets are saved |
 | `INTENT_MIN_CONFIDENCE` | below this a ticket goes to a human (default 0.6) |
 | `RATE_LIMIT_PER_MINUTE`, `AUTH_FAILURES_PER_MINUTE` | per-client limits (120 / 10; 0 = off) |

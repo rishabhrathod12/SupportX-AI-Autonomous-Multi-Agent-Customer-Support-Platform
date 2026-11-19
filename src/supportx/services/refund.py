@@ -11,6 +11,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from supportx.core import Settings
 from supportx.db.enums import OrderStatus, RefundReason, RefundStatus
 
 
@@ -26,6 +27,15 @@ class RefundPolicy(BaseModel):
     version: str = "demo-1"
     return_window_days: int = Field(default=30, gt=0)  # days after delivery
     not_received_after_days: int = Field(default=14, gt=0)  # days after shipping
+
+
+def refund_policy_from_settings(settings: Settings) -> RefundPolicy:
+    """The refund policy the settings describe (the one place the numbers come from)."""
+    return RefundPolicy(
+        version=settings.business_rules_version,
+        return_window_days=settings.refund_return_window_days,
+        not_received_after_days=settings.refund_not_received_after_days,
+    )
 
 
 class DenialCode(StrEnum):

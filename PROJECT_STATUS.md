@@ -198,9 +198,15 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
       NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
-- [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
-      order can be reported "not received") are DEMO DEFAULTS I chose, not your real policy. Please confirm or
-      replace them, along with the rules themselves (e.g. final-sale items, one pending request per order).
+- [x] Business rules configurable (2026-11-19, master-prompt Phase 1): `REFUND_RETURN_WINDOW_DAYS`,
+      `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` in settings; production start-up warns while
+      `BUSINESS_RULES_CONFIRMED=false`; `/staff/model-info` shows the live rules. New tests: delivered-without-date,
+      not-received-without-ship-date, one-second boundaries, cancellation edges, duplicate cancellation tickets (4),
+      PostgreSQL race tests for cancellation and refund requests (WRITTEN BUT NOT RUN: skipped without TEST_POSTGRES_URL).
+      The cancellation rule (only an unshipped order) is structural, not numeric, so it is not a setting.
+- [ ] **User decision still needed:** the real refund numbers/rules. Current values are DEMO defaults (30 days after
+      delivery, 14 days after shipping for "not received"; final-sale items excluded; one pending request per order;
+      cancellation only before shipping). Set them in `.env`, then `BUSINESS_RULES_CONFIRMED=true`.
 - [ ] Not yet tested against PostgreSQL (Docker and PostgreSQL are not installed); SQLite returns naive datetimes,
       so the repository layer must normalize them to UTC (planned for 5.2).
 - [x] The DL tests were re-run after the epoch-logging callback (they are part of every full run since; 301 passed).

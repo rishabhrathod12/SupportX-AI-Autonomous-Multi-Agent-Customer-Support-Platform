@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     intent_model_path: str = "artifacts/models/intent_tfidf_lr_bitext_aug.joblib"
     policy_docs_dir: str = "data/sample/policies"
 
+    # Business rules. THE DEFAULTS ARE DEMO NUMBERS, not a real policy: set the real ones and
+    # then BUSINESS_RULES_CONFIRMED=true (production start-up warns while it is false).
+    business_rules_version: str = Field(default="demo-1", min_length=1, max_length=40)
+    refund_return_window_days: int = Field(default=30, gt=0, le=3650)  # days after delivery
+    refund_not_received_after_days: int = Field(default=14, gt=0, le=3650)  # days after shipping
+    business_rules_confirmed: bool = False
+
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.
     # 0.6 (not 0.4): measured on out-of-domain messages it catches many more confidently-wrong cases
     # for about 1% extra escalations on in-domain validation data (see docs/EXPERIMENTS.md, E5).

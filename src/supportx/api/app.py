@@ -31,6 +31,7 @@ from supportx.core import (
 )
 from supportx.db import init_db, make_engine
 from supportx.services import RefundPolicy
+from supportx.services.refund import refund_policy_from_settings
 
 logger = get_logger(__name__)
 
@@ -49,6 +50,12 @@ def create_app(
     passes nothing and everything is built from the settings at start-up."""
     settings = settings or get_settings()
     setup_logging(settings.log_level, settings.log_format)
+    if settings.app_env == "production" and not settings.business_rules_confirmed:
+        logger.warning(
+            "Refund/cancellation rules (version %s) have NOT been confirmed as real policy. "
+            "Set the real values and BUSINESS_RULES_CONFIRMED=true.",
+            settings.business_rules_version,
+        )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -81,7 +88,7 @@ def create_app(
         openapi_url=None if settings.app_env == "production" else "/openapi.json",
     )
     app.state.settings = settings
-    app.state.policy = policy or RefundPolicy()
+    app.state.policy = policy or refund_policy_from_settings(settings)
     app.state.tickets = tickets  # None until the lifespan builds it (or stays None if disabled)
     if engine is not None:  # tests may not run the lifespan, so wire the session factory now
         app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
