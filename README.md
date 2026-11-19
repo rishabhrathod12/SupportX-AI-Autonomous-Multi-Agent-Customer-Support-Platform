@@ -1,85 +1,104 @@
 # SupportX AI - Autonomous Multi-Agent Customer Support Platform
 
-An e-commerce customer support platform that combines classical ML, deep learning (TensorFlow/Keras),
-NLP, RAG, and a LangGraph multi-agent workflow. It classifies intent, analyzes sentiment, investigates
-orders, retrieves company policy, checks refund eligibility, and drafts accurate replies.
-**Refunds and cancellations always require human approval.**
+An e-commerce customer support workflow: a rule-based Supervisor routes each ticket through intent
+classification, sentiment, policy retrieval (RAG), order lookup and refund/cancellation checks
+(LangGraph), then replies from grounded templates. **Refunds and cancellations always wait for a
+human decision.** Served by FastAPI over SQLAlchemy.
 
-> Status: project initialization complete. No application code yet - see `PROJECT_STATUS.md`.
+> Status: working end to end on a local demo (see `PROJECT_STATUS.md` for the full, honest list of what is
+> done, unverified and open). Key limits: no LLM (replies are templates; needs an OpenAI key), sentiment is a
+> keyword stub, retrieval is lexical, the intent model was trained on synthetic data, and the Docker image and
+> PostgreSQL have never been run (not installed on the development machine). The refund and cancellation rules
+> use DEMO numbers, not a real policy. Evaluation: `docs/EVALUATION.md`.
 
-## Tech stack
-Python 3.12, Pandas/NumPy, scikit-learn, XGBoost, TensorFlow/Keras, NLTK, OpenAI API,
-LangChain, LangGraph, FAISS, FastAPI, PostgreSQL, SQLAlchemy, Pydantic, MLflow, Pytest, Docker.
-
-## Documentation
-- `docs/ARCHITECTURE.md` - architecture and design decisions
-- `DEVELOPMENT_ROADMAP.md` - phased plan
-- `PROJECT_STATUS.md` - what is done / pending
-
-## Setup (Windows PowerShell)
+## Quick start (local demo, Windows PowerShell)
 
 ```powershell
-# 1. Create and activate the virtual environment (Python 3.12)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-#    If blocked: Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-
-# 2. Install dependencies (large: TensorFlow + MLflow, several GB of downloads)
-python -m pip install --upgrade pip
-pip install -r requirements-dev.txt
-
-# 3. Configure secrets
-Copy-Item .env.example .env      # then edit .env; never commit it
-
-# 4. Check the toolchain
-pytest
-```
-
-Linux/macOS: use `source venv/bin/activate` and `cp .env.example .env`.
-
-## Run the API
-
-```powershell
-# in .env (copy of .env.example): set DATABASE_URL and STAFF_API_KEY
-#   quick local option without PostgreSQL:  DATABASE_URL=sqlite:///supportx.db
+python -m venv venv ; .\venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt          # large: includes TensorFlow and MLflow
 $env:PYTHONPATH = "src"
-uvicorn supportx.api.app:create_app --factory --reload
-# interactive docs: http://127.0.0.1:8000/docs  (hidden when APP_ENV=production)
+
+# 1. data and the intent model (public datasets; read their licenses first: docs/DATASETS.md)
+python -m supportx.data.download bitext --accept-license
+python -m supportx.data.prepare all
+python -m supportx.ml.train_intent bitext --augment 120    # writes artifacts/models/intent_tfidf_lr_bitext_aug.joblib
+
+# 2. demo database with four orders, then the server
+$env:DATABASE_URL = "sqlite:///demo.db"; $env:STAFF_API_KEY = "choose-a-key"; $env:APP_ENV = "development"
+python scripts/seed_demo.py
+uvicorn supportx.api.app:create_app --factory
 ```
+
+Open `http://127.0.0.1:8000/demo` (customer chat and staff approvals; not served when `APP_ENV=production`) or
+`http://127.0.0.1:8000/docs`. Demo customer: `demo@example.com`; orders ORD-1001 (refundable), ORD-2002 (past the
+return window), ORD-3003 (cancellable), ORD-4004 (shipped). If the model or policy documents are missing the server
+still starts and the ticket endpoints answer 503.
+
+## Configuration (environment or `.env`; see `.env.example`)
+
+| Variable | Meaning |
+|---|---|
+| `DATABASE_URL` | SQLAlchemy URL (`sqlite:///demo.db` locally, PostgreSQL in compose) |
+| `STAFF_API_KEYS` | personal staff keys `name:key,...` (keys 16+ chars); the recorded approver is the key's name |
+| `STAFF_API_KEY` | one shared staff key (the caller states the approver); unset and no personal keys = staff endpoints off |
+| `APP_ENV` | `development` creates tables and serves `/demo`; `production` hides docs and `/demo` and expects migrations |
+| `INTENT_MODEL_PATH`, `POLICY_DOCS_DIR`, `CHECKPOINT_DB_PATH` | model file, policy folder, where paused tickets are saved |
+| `INTENT_MIN_CONFIDENCE` | below this a ticket goes to a human (default 0.6) |
+| `RATE_LIMIT_PER_MINUTE`, `AUTH_FAILURES_PER_MINUTE` | per-client limits (120 / 10; 0 = off) |
+| `LOG_LEVEL`, `LOG_FORMAT` | `text` or `json` log lines; every line carries a request id |
+
+## Endpoints
 
 | Endpoint | Who | Purpose |
 |---|---|---|
-| `GET /health`, `GET /health/ready` | anyone | process up / database reachable |
-| `POST /orders/lookup` | customer (order number + email) | order status |
-| `POST /refunds/eligibility` | customer | would a refund be allowed? (creates nothing) |
-| `POST /refunds/requests` | customer | create a pending refund request if the rules allow |
-| `GET /staff/refunds/pending` | staff (`X-API-Key`) | refunds waiting for a decision |
-| `POST /staff/refunds/{id}/approve`, `/reject` | staff (`X-API-Key`) | human decision (reject needs a note); also resumes a paused ticket waiting on that refund |
-| `POST /tickets` | customer | send a message to the agent workflow; answers immediately, or returns 202 when a person must decide first |
-| `POST /tickets/status` | customer (ticket id + email) | the reply or current status of a ticket |
-| `GET /staff/tickets/awaiting` | staff (`X-API-Key`) | tickets paused for a human decision |
-| `POST /staff/tickets/{id}/decision` | staff (`X-API-Key`) | approve/reject a paused ticket (records the refund decision and resumes the ticket) |
+| `GET /health`, `GET /health/ready` | anyone | process up / database reachable (never rate limited) |
+| `POST /tickets` | customer | send a message to the workflow; answers at once, or 202 when a person must decide first |
+| `POST /tickets/status` | customer (ticket id + email) | the reply or current status |
+| `POST /orders/lookup`, `POST /refunds/eligibility`, `POST /refunds/requests` | customer (order number + email) | order status, refund check, create a pending refund request |
+| `GET /staff/tickets/awaiting` | staff (`X-API-Key`) | tickets paused for a decision |
+| `POST /staff/tickets/{id}/decision` | staff | approve/reject; an approved refund or cancellation is applied, then the ticket resumes |
+| `GET /staff/refunds/pending`, `POST /staff/refunds/{id}/approve` or `/reject` | staff | the same decisions by refund id (reject needs a note) |
+| `GET /staff/model-info` | staff | which intent model file (SHA-256) and settings are serving |
 
-The ticket endpoints need the trained intent model (`python -m supportx.ml.train_intent bitext`, which writes
-`artifacts/models/intent_tfidf_lr_bitext.joblib`) and the policy documents. If either is missing the server still
-starts, logs a warning, and the ticket endpoints answer 503. Paused tickets are saved in a SQLite file
-(`CHECKPOINT_DB_PATH`) and survive a restart. Note: the demo-trained model currently hands many ordinary messages to a
-human (see `docs/EXPERIMENTS.md`, E5b).
+Cancellation rule (demo default): only an order that has not shipped can be cancelled; otherwise the customer gets
+a reason at once and no human is asked. Refund rule (demo defaults): 30 days after delivery; "not received" only
+after 14 days from shipping.
 
-Not production-ready yet: staff use one shared API key (the approver name is self-declared), customers are
-identified only by order number + email, and there is no rate limiting or HTTPS. Add real authentication before
-exposing it. The refund policy numbers are demo defaults.
+## Tests and checks
 
-## Notes
-- TensorFlow on native Windows runs on CPU only. For GPU, use WSL2 (optional, later).
-- PostgreSQL and Docker are required from the database phase onward; they are not needed yet.
-- `data/sample/` will contain synthetic demo data only. Real datasets go in `data/raw/` (git-ignored).
+```powershell
+pytest                       # full suite: 301 passed at its last full run (about 5-8 minutes; TensorFlow is slow)
+ruff check src tests migrations ; ruff format --check src tests migrations
+mypy --strict src
+python -m supportx.ml.probe_eval artifacts/models/intent_tfidf_lr_bitext_aug.joblib --split dev --show-failures
+python -m supportx.rag.evaluate --split dev --show-misses
+```
+
+The holdout probe/retrieval sets and the test split of the datasets were each scored once for the reported numbers;
+do not tune against them (`docs/EXPERIMENTS.md`).
+
+## Database migrations and Docker
+
+`alembic upgrade head` (reads `DATABASE_URL`) applies `migrations/`; a test checks the migrations match the models.
+`docker-compose.yml` (PostgreSQL, API, optional MLflow) and `docker/Dockerfile.api` exist but were **never built or
+run**. Mount your trained model at `artifacts/models`.
+
+## Not production-ready
+
+Customers are identified only by order number + email; no HTTPS; rate limits are in memory and per process (also
+limit at a proxy); staff keys cannot be rotated or revoked without a restart; nothing reverses a payment, releases
+stock or notifies the customer. Details and the open list: `PROJECT_STATUS.md`.
+
+## Documentation
+- `docs/ARCHITECTURE.md` - architecture and design decisions
+- `docs/EXPERIMENTS.md` - every experiment, with its caveats; `docs/EVALUATION.md` - results and limitations
+- `docs/DATASETS.md` - datasets, licenses, data checks
+- `DEVELOPMENT_ROADMAP.md` - phased plan; `PROJECT_STATUS.md` - done / pending
 
 ## Project layout
 ```
-src/supportx/   core, db, nlp, ml, dl, llm, rag, agents, services, api
-tests/          unit/ and integration/
-data/           raw/ (real, ignored), sample/ (synthetic demo), processed/
-artifacts/      trained models and vector stores (ignored)
-docs/ scripts/ docker/ notebooks/
+src/supportx/   core, db, nlp, ml, dl, rag, agents, services, api
+migrations/     Alembic            scripts/   demo seed
+tests/          unit/              data/      raw/ and processed/ (ignored), sample/ (demo policies, probe sets)
+artifacts/      trained models (ignored)       docs/ docker/ notebooks/
 ```
