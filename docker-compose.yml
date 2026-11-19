@@ -26,6 +26,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://supportx:${POSTGRES_PASSWORD}@db:5432/supportx
       STAFF_API_KEY: ${STAFF_API_KEY:-}
+      STAFF_API_KEYS: ${STAFF_API_KEYS:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # Tables come from Alembic migrations (run at container start), not from the app.
       APP_ENV: ${APP_ENV:-production}

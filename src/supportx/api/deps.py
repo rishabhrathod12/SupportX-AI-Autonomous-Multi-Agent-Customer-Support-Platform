@@ -2,6 +2,7 @@
 
 import secrets
 from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request
@@ -54,23 +55,49 @@ def get_ticket_service(request: Request) -> TicketService:
 TicketsDep = Annotated[TicketService, Depends(get_ticket_service)]
 
 
+@dataclass(frozen=True)
+class StaffIdentity:
+    """Who is calling. `name` is None for the shared key (the caller then states the approver)."""
+
+    name: str | None
+
+
 def require_staff(
     settings: Annotated[Settings, Depends(get_settings_dep)],
     x_api_key: Annotated[str | None, Header()] = None,
-) -> None:
-    """Allow the request only if it carries the configured staff API key."""
-    if settings.staff_api_key is None:
+) -> StaffIdentity:
+    """Allow the request only if it carries a configured staff key; say whose it is."""
+    accepted = settings.staff_identities()
+    if not accepted:
         raise HTTPException(
             status_code=503,
-            detail="Staff endpoints are disabled: STAFF_API_KEY is not configured.",
+            detail="Staff endpoints are disabled: STAFF_API_KEY / STAFF_API_KEYS not configured.",
         )
-    expected = settings.staff_api_key.get_secret_value().encode()
-    if x_api_key is None or not secrets.compare_digest(x_api_key.encode(), expected):
+    provided = (x_api_key or "").encode()
+    match: StaffIdentity | None = None
+    for key, name in accepted:  # compare against every key: the time taken does not reveal which
+        if secrets.compare_digest(provided, key.encode()) and x_api_key is not None:
+            match = StaffIdentity(name)
+    if match is None:
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API key.",
             headers={"WWW-Authenticate": "ApiKey"},
         )
+    return match
 
 
 StaffDep = Depends(require_staff)
+StaffIdentityDep = Annotated[StaffIdentity, Depends(require_staff)]
+
+
+def resolve_approver(staff: StaffIdentity, claimed: str | None) -> str:
+    """The name recorded on a decision. A personal key decides it (a caller cannot claim to be
+    someone else); with the shared key the caller must state it, as before."""
+    if staff.name is not None:
+        return staff.name
+    if not claimed:
+        raise HTTPException(
+            status_code=422, detail="approver is required when using the shared staff key."
+        )
+    return claimed

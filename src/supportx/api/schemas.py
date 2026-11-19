@@ -86,7 +86,7 @@ class StaffTicketOut(BaseModel):
 
 class TicketDecisionIn(_Strict):
     approved: bool
-    approver: str = Field(min_length=1, max_length=120)
+    approver: str | None = Field(default=None, min_length=1, max_length=120)
     note: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
@@ -97,12 +97,12 @@ class TicketDecisionIn(_Strict):
 
 
 class ApproveIn(_Strict):
-    approver: str = Field(min_length=1, max_length=120)
+    approver: str | None = Field(default=None, min_length=1, max_length=120)
     note: str | None = Field(default=None, max_length=2000)
 
 
 class RejectIn(_Strict):
-    approver: str = Field(min_length=1, max_length=120)
+    approver: str | None = Field(default=None, min_length=1, max_length=120)
     note: str = Field(min_length=1, max_length=2000)  # a reason is mandatory
 
 

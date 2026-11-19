@@ -1,14 +1,17 @@
 """Application settings, loaded from environment variables and an optional .env file."""
 
+import re
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from supportx.core.exceptions import ConfigurationError
 
 AppEnv = Literal["development", "testing", "production"]
+_STAFF_NAME = re.compile(r"^[A-Za-z0-9._-]{1,60}$")
+MIN_NAMED_KEY_LENGTH = 16
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 LogFormat = Literal["text", "json"]
 
@@ -36,8 +39,11 @@ class Settings(BaseSettings):
 
     # Shared key protecting the staff endpoints (X-API-Key header). Unset = those endpoints are off.
     staff_api_key: SecretStr | None = None
+    # Per-person keys, "jane:KEY1,bob:KEY2" (each key at least 16 characters). The approver
+    # recorded on a decision is then the name that goes with the key, not what the caller types.
+    staff_api_keys: SecretStr | None = None
 
-    # Per-client limits over a sliding minute, 0 = unlimited (see supportx.api.ratelimit for the caveats).
+    # Per-client limits over a sliding minute, 0 = unlimited (caveats: supportx.api.ratelimit).
     rate_limit_per_minute: int = Field(default=120, ge=0)
     auth_failures_per_minute: int = Field(default=10, ge=0)  # wrong staff keys before a lockout
 
@@ -61,6 +67,43 @@ class Settings(BaseSettings):
         if not isinstance(value, str):
             return value
         return value.upper() if info.field_name == "log_level" else value.lower()
+
+    @model_validator(mode="after")
+    def _check_staff_keys(self) -> "Settings":
+        self.staff_identities()  # fail at start-up, not on the first staff request
+        return self
+
+    def staff_identities(self) -> list[tuple[str, str | None]]:
+        """Every accepted staff key as (key, name). The shared key has no name (None).
+
+        Raises ConfigurationError for a malformed STAFF_API_KEYS (bad name, short or duplicate
+        key, duplicate name, or a named key equal to the shared key).
+        """
+        found: list[tuple[str, str | None]] = []
+        raw = self.staff_api_keys.get_secret_value() if self.staff_api_keys else ""
+        names: set[str] = set()
+        for entry in (e.strip() for e in raw.split(",") if e.strip()):
+            name, sep, key = entry.partition(":")
+            name, key = name.strip(), key.strip()
+            if not sep or not _STAFF_NAME.match(name):
+                raise ConfigurationError(
+                    "STAFF_API_KEYS entries must look like name:key, where the name uses only "
+                    "letters, digits, '.', '_' or '-'."
+                )
+            if len(key) < MIN_NAMED_KEY_LENGTH:
+                raise ConfigurationError(
+                    f"The key for staff member '{name}' is shorter than "
+                    f"{MIN_NAMED_KEY_LENGTH} characters."
+                )
+            if name in names:
+                raise ConfigurationError(f"STAFF_API_KEYS lists '{name}' twice.")
+            names.add(name)
+            found.append((key, name))
+        if self.staff_api_key is not None:
+            found.append((self.staff_api_key.get_secret_value(), None))
+        if len({key for key, _ in found}) != len(found):
+            raise ConfigurationError("Two staff keys are identical; every key must be unique.")
+        return found
 
     def require_openai_api_key(self) -> str:
         """Return the OpenAI key, or raise a clear error if it is not configured."""

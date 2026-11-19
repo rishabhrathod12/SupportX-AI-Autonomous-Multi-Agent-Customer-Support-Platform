@@ -3,8 +3,8 @@
 Two budgets, both counted per client address over a sliding window:
   * requests: every endpoint except /health*, so one client cannot hammer the API or guess
     customer emails / order numbers quickly;
-  * auth failures: wrong or missing staff keys on /staff/*; once used up, that client is blocked from
-    /staff/* (even with the right key) until the window passes, which makes guessing the key impractical.
+  * auth failures: wrong or missing staff keys on /staff/*; once used up, that client is blocked
+    from /staff/* (even with the right key) until the window passes, so guessing is impractical.
 
 LIMITS (read before relying on it): the counters live in this process, so with several server
 processes each has its own budget, and a restart clears them. Behind a reverse proxy every client

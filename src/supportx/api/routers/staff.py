@@ -4,7 +4,14 @@ from fastapi import APIRouter, Request
 
 from supportx.agents.state import HumanDecision
 from supportx.agents.tickets import TicketService
-from supportx.api.deps import SessionDep, StaffDep, TicketsDep, WorkflowDep
+from supportx.api.deps import (
+    SessionDep,
+    StaffDep,
+    StaffIdentityDep,
+    TicketsDep,
+    WorkflowDep,
+    resolve_approver,
+)
 from supportx.api.schemas import (
     ApproveIn,
     RefundRequestOut,
@@ -67,17 +74,29 @@ def _decide_refund(
 
 @router.post("/refunds/{refund_id}/approve", response_model=RefundRequestOut)
 def approve(
-    refund_id: int, body: ApproveIn, request: Request, session: SessionDep, workflow: WorkflowDep
+    refund_id: int,
+    body: ApproveIn,
+    request: Request,
+    session: SessionDep,
+    workflow: WorkflowDep,
+    staff: StaffIdentityDep,
 ) -> RefundRequestOut:
-    decision = HumanDecision(approved=True, approver=body.approver, note=body.note)
+    approver = resolve_approver(staff, body.approver)
+    decision = HumanDecision(approved=True, approver=approver, note=body.note)
     return _decide_refund(request, session, workflow, refund_id, decision)
 
 
 @router.post("/refunds/{refund_id}/reject", response_model=RefundRequestOut)
 def reject(
-    refund_id: int, body: RejectIn, request: Request, session: SessionDep, workflow: WorkflowDep
+    refund_id: int,
+    body: RejectIn,
+    request: Request,
+    session: SessionDep,
+    workflow: WorkflowDep,
+    staff: StaffIdentityDep,
 ) -> RefundRequestOut:
-    decision = HumanDecision(approved=False, approver=body.approver, note=body.note)
+    approver = resolve_approver(staff, body.approver)
+    decision = HumanDecision(approved=False, approver=approver, note=body.note)
     return _decide_refund(request, session, workflow, refund_id, decision)
 
 
@@ -87,7 +106,10 @@ def list_awaiting_tickets(tickets: TicketsDep) -> list[StaffTicketOut]:
 
 
 @router.post("/tickets/{ticket_id}/decision", response_model=StaffTicketOut)
-def decide_ticket(ticket_id: str, body: TicketDecisionIn, tickets: TicketsDep) -> StaffTicketOut:
+def decide_ticket(
+    ticket_id: str, body: TicketDecisionIn, tickets: TicketsDep, staff: StaffIdentityDep
+) -> StaffTicketOut:
     """Approve or reject a paused ticket (refunds are also recorded on the refund request)."""
-    decision = HumanDecision(approved=body.approved, approver=body.approver, note=body.note)
+    approver = resolve_approver(staff, body.approver)
+    decision = HumanDecision(approved=body.approved, approver=approver, note=body.note)
     return StaffTicketOut.from_view(tickets.decide_ticket(ticket_id, decision))

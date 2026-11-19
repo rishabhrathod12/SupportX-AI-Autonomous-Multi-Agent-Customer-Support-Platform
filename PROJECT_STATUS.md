@@ -191,8 +191,11 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
 - [x] Rate limiting (2026-11-18): per-client sliding-window limits (`RATE_LIMIT_PER_MINUTE`, default 120) and a lockout of
       /staff/* after `AUTH_FAILURES_PER_MINUTE` (default 10) wrong keys; health probes exempt; 429 + Retry-After; 7 tests.
       In-memory and per process (resets on restart, not shared between processes), does not read X-Forwarded-For.
-- [ ] API limits before production, still open: one shared staff key (approver name is self-declared), customers identified
-      only by order number + email, no HTTPS, no PostgreSQL run, rate limits need a proxy/gateway layer too.
+- [x] Personal staff keys (2026-11-19): `STAFF_API_KEYS=name:key,...` (keys >= 16 chars, validated at start-up). The recorded
+      approver is the key's name and a caller cannot claim another; the shared `STAFF_API_KEY` still works and still needs a
+      stated approver. 9 tests. Not done: key rotation/expiry, revoking one key without a restart, role separation.
+- [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
+      run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
       NOT exercised: SQLite ignores it and PostgreSQL is not installed. Needs a PostgreSQL test later.
 - [ ] **User decision needed:** the refund policy numbers (30-day return window after delivery, 14 days before an
