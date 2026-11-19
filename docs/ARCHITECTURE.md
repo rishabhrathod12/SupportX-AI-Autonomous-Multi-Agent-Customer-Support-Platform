@@ -1,90 +1,132 @@
 # SupportX AI - Architecture
 
-## 1. High-level flow
+This document describes what is IMPLEMENTED. Things that are planned but not built are marked **(planned)** and
+collected in section 8. Facts about quality and limits live in `docs/EVALUATION.md` and `PROJECT_STATUS.md`.
+
+## 1. High-level flow (as built)
 
 ```
-Customer query
-      |
-      v
- FastAPI  (/tickets, /chat, /approvals)
-      |
-      v
- LangGraph workflow  <---- shared TicketState (Pydantic)
-      |
- Supervisor Agent  --routes-->  Query Understanding  (intent ML/DL model)
-      |                         Sentiment Agent       (sentiment + urgency model)
-      |                         Knowledge Agent       (RAG over policies, FAISS)
-      |                         Order Agent           (PostgreSQL via repositories)
-      |                         Refund Agent          (rules + order facts)
-      |                               |
-      |                    sensitive action? --yes--> HUMAN APPROVAL (interrupt)
-      v
- Response Agent (LLM, grounded only in retrieved facts)
-      |
-      v
- Reply + audit log in PostgreSQL;  metrics/experiments in MLflow
+Customer message  ->  POST /tickets  (FastAPI; request id, rate limit)
+                            |
+                     TicketService.submit  (writes the ticket row, runs the graph)
+                            |
+              LangGraph workflow  <---- shared TicketState (TypedDict), one thread per ticket
+                            |
+   Supervisor (rule-based, pure function `decide_next`) routes, after every step, to:
+        query_understanding  intent + confidence   (TF-IDF + LogReg model)
+        sentiment            label + urgency       (KEYWORD STUB, no model yet)
+        knowledge            policy passages       (RAG: lexical TF-IDF + FAISS)
+        order                order summary         (owner-checked database lookup)
+        refund               eligibility rules; creates a PENDING refund request
+                            |
+        refund or cancellation that is allowed  -->  human_approval  (LangGraph interrupt, paused)
+                            |
+        respond              grounded TEMPLATE reply (no LLM)
+                            |
+          ticket row updated (status, reply, escalation reason)
+
+Paused ticket:  POST /staff/tickets/{id}/decision  ->  (1) apply the decision in the database
+                (refund approved/rejected, or order cancelled; idempotent)  ->  (2) resume the graph.
 ```
+
+Escalation to a person happens (reply = a handoff message) when: intent confidence is below
+`INTENT_MIN_CONFIDENCE`, sentiment is urgent and negative, the intent is a complaint or a request for a human, no
+policy passage matches ("never answer from nothing"), an agent still fails after its retries, or the step limit
+(`MAX_STEPS = 12`) is reached. A missing order number or email is asked for, never guessed.
 
 ## 2. Module responsibilities
 
-| Package (`src/supportx/`) | Responsibility | May import from |
+| Package (`src/supportx/`) | Responsibility | Imports from |
 |---|---|---|
-| `core` | Settings (env vars), logging, custom exceptions, shared types | nothing internal |
-| `db` | SQLAlchemy models, sessions, repositories, Alembic migrations | `core` |
-| `data` | License-gated dataset download (pinned revisions, SHA-256 manifest) and a labeled synthetic sample generator for tests | `core` |
-| `nlp` | Text cleaning, tokenization, NLTK utilities (shared preprocessing) | `core` |
-| `ml` | Classical ML: intent, sentiment, priority, routing, resolution time (sklearn/XGBoost). Train, evaluate, save, load, predict | `core`, `nlp` |
-| `dl` | TensorFlow/Keras: dense NN, LSTM/BiLSTM for intent and sentiment; same train/evaluate/save/load/predict contract as `ml` | `core`, `nlp`, `data` (split loading), and the shared metric/logging helpers `ml.evaluate` / `ml.experiment` |
-| `llm` | Thin OpenAI/LangChain wrapper: retries, timeouts, prompt templates | `core` |
-| `rag` | Document loading, chunking, embeddings, FAISS index, retriever (pgvector-ready interface) | `core`, `llm` |
-| `agents` | LangGraph state, graph, one module per agent, routing, human-in-the-loop | `core`, `ml`, `dl`, `rag`, `llm`, `services` |
-| `services` | Business logic (order lookup, refund eligibility rules, ticket handling) - no HTTP, no LLM | `core`, `db` |
-| `api` | FastAPI app, routers, request/response schemas, dependencies | `services`, `agents` |
+| `core` | Settings (env vars, validation), logging (request id, text/JSON), exceptions, model-file fingerprint | nothing internal |
+| `db` | SQLAlchemy models, enums, sessions, repositories (UTC normalization, row locks). Alembic migrations live in `migrations/` at the repo root | `core` |
+| `data` | License-gated dataset download, split preparation, synthetic sample generator, similarity check, hand-written training phrasings (`augment`) | `core`, `nlp` |
+| `nlp` | Text cleaning and tokenization shared by training and serving (order numbers become the dataset's order-number token) | - |
+| `ml` | Intent classifier (TF-IDF + LogReg or XGBoost), training with MLflow, evaluation, the one-shot test scorer, the probe-set scorer | `core`, `nlp`, `data` |
+| `dl` | Keras Embedding + BiLSTM intent model (a documented experiment; not used in serving) | `core`, `nlp`, `data`, `ml` helpers |
+| `llm` | EMPTY placeholder (no LLM integration yet) **(planned)** | - |
+| `rag` | Markdown chunking, local TF-IDF embedder with light stemming, FAISS exact index, retriever (`retrieve_for_answer` picks the best passage plus a close runner-up), retrieval scorer | `core`, `nlp` |
+| `services` | Business rules with no HTTP and no LLM: refund eligibility and workflow, cancellation rule and action, order lookup | `core`, `db` |
+| `agents` | The graph, the Supervisor rules, `TicketState`, the agent interface (`ports.AgentSet`), real adapters (`adapters.py`), deterministic stubs (`stubs.py`), template replies, `TicketService` and the checkpointer wiring | `core`, `ml`, `rag`, `services`, `db` |
+| `api` | App factory, routers (customer, tickets, staff, health, demo), schemas, dependencies, request-logging and rate-limit middleware | `agents`, `services`, `db`, `core` |
 
-Dependency rule: arrows only point downward in the table. `ml`, `dl`, `rag`, `agents`, and `api` never import each other sideways, except `agents` consuming the others through small interfaces.
+Notes on the dependency direction: `agents` consumes models and retrieval through small callables, so a model can be
+swapped without touching the graph. The Supervisor imports the pure cancellation rule from `services`. `api` never
+touches models directly. Agents are functions grouped in an `AgentSet`, not one module per agent.
 
 ## 3. Key decisions (and why)
 
-1. **`src/` layout** - prevents accidental imports from the repo root and mirrors real packages.
-2. **ML and DL are separate packages with the same interface** (`train`, `evaluate`, `save`, `load`, `predict`). The agents depend on the interface, so a model can be swapped (e.g., XGBoost -> BiLSTM) after comparing metrics in MLflow.
-3. **Refund eligibility is deterministic code, not LLM judgment.** The LLM only explains the decision. Money-related logic must be testable and auditable.
-4. **Human approval is a LangGraph interrupt with a checkpointer.** The paused ticket (one thread per ticket) resumes
-   when a person decides. The production checkpointer is `SqliteSaver` (a file), so paused tickets survive a restart (verified with a
-   real server restart); tests use the in-memory saver. For several server processes a PostgreSQL saver will be needed. When a
-   ticket resumes, the paused node re-runs from its start, so code before `interrupt()` must have no side effects.
-   An agent that still fails after its retries does not crash the ticket: an error handler records the failure
-   (details go to the logs only) and the Supervisor hands the ticket to a human.
-5. **FAISS first behind a `Retriever` interface**; pgvector can replace it later without touching agents.
-6. **Services layer has no framework code**, so business rules are unit-testable without FastAPI, the DB, or the LLM.
-7. **Secrets only through environment variables** (`pydantic-settings`); `.env` is git-ignored, `.env.example` is committed.
-8. **Data honesty**: `data/sample/` holds clearly labeled synthetic demo data for tests and demos. Reported metrics must come from real datasets stored in `data/raw/` and logged in MLflow with the dataset name and version.
-9. **Hugging Face deferred**: it requires a backend (PyTorch), which is large and not needed until the NLP/embedding phase. Adding it later avoids early dependency bloat.
+1. **`src/` layout** - prevents accidental imports from the repo root.
+2. **Classical ML is the serving model.** The BiLSTM and XGBoost were measured and were not better (`docs/EXPERIMENTS.md`).
+3. **Refund and cancellation rules are deterministic code, not model judgment.** Money logic must be testable and
+   auditable. Every refund decision records the rules version that produced it. The numbers are settings and are
+   DEMO defaults until `BUSINESS_RULES_CONFIRMED=true`.
+4. **A person always decides refunds and cancellations.** Human approval is a LangGraph interrupt with a checkpointer
+   (`SqliteSaver`, a file), so paused tickets survive a restart (verified with a real server restart). Several server
+   processes would need a PostgreSQL saver **(planned)**. When a ticket resumes, the paused node re-runs from its
+   start, so code before `interrupt()` must have no side effects.
+5. **Two-step decisions are idempotent.** Apply the decision (refund status, or order cancelled with approver and
+   time), then resume the ticket. A crash between the steps is safe to retry. The cancellation rule is re-checked
+   when approved, because the order may have shipped while the ticket waited.
+6. **Failures degrade to a person.** An agent that still fails after its retries does not crash the ticket: an error
+   handler records it (details only in the logs) and the Supervisor hands over to a human.
+7. **FAISS behind a `Retriever` interface**; a semantic embedder or pgvector can replace the lexical one without
+   touching agents **(planned)**.
+8. **Owner checks look the same for "wrong email" and "no such order"**, so callers cannot probe which orders exist.
+9. **Secrets only through environment variables** (`pydantic-settings`, `SecretStr`); `.env` is git-ignored.
+10. **Data honesty.** Synthetic data is labeled; the test splits and the holdout probe sets were each scored once.
+    Scores come with their caveats in `docs/EVALUATION.md`.
+11. **Hugging Face / PyTorch deferred**: large, and only needed for semantic embeddings or a transformer model.
 
-## 4. Agents
+## 4. Agents (what each really does)
 
-| Agent | Input | Output | Tools |
+| Step | Input | Output | Implementation |
 |---|---|---|---|
-| Supervisor | TicketState | next node, retry/escalation decision | routing rules, LLM fallback |
-| Query Understanding | raw text | intent + confidence | intent model |
-| Sentiment | raw text | sentiment, urgency, priority | sentiment/priority models |
-| Knowledge | question | policy passages + sources | RAG retriever |
-| Order Management | order id | order, shipment status | order service |
-| Refund | order + policy | eligible / not eligible + reason; approval request | refund service |
-| Response | all state | final reply grounded in facts | LLM |
+| Supervisor | `TicketState` | next step, escalation | rule-based function `decide_next`; no LLM |
+| query_understanding | message | intent + confidence | trained TF-IDF + LogReg (default file `intent_tfidf_lr_bitext_aug.joblib`) |
+| sentiment | message | label, urgency | keyword stub (`stubs.stub_sentiment`) |
+| knowledge | question | 1-2 policy passages with source and heading | lexical retrieval; empty result escalates |
+| order | order number + email | order summary (status, tracking) | database, owner-checked |
+| refund | order, message | eligibility, amount, reason codes; creates a PENDING request when allowed | `services.refund` rules + `RefundWorkflow` |
+| human_approval | what is being decided | the person's decision | LangGraph `interrupt` |
+| respond | all state | reply | grounded templates: only retrieved text and order facts are quoted |
 
-## 5. Data model (initial sketch)
+A cancellation has no separate agent: the Supervisor applies the pure cancellation rule to the order summary,
+answers a denial at once, and otherwise pauses for approval; the order is changed only after the human approves.
 
-Implemented: `customers`, `orders`, `order_items`, `shipments`, `refund_requests`, and `tickets` (Phase 7.2b: status
-open / awaiting_approval / completed, the link to its refund request, the customer's email for owner checks, the reply,
-and the escalation reason). The ticket id is also the workflow's thread id. A ticket decision is two steps - record it on
-the refund request (idempotent), then resume the paused ticket - so a crash between them is safe to retry.
-Money is stored as integer cents; timestamps are timezone-aware UTC. The human decision is stored on the
-refund request itself (`status` pending_approval / approved / rejected, `decided_by`, `decided_at`,
-`decision_note`), so there is no separate `approvals` table.
-Planned: `tickets`, `ticket_messages`, `audit_logs`.
+## 5. HTTP API (see `README.md` for the table)
 
-## 6. Testing strategy
+Customer: `POST /tickets`, `POST /tickets/status`, `POST /orders/lookup`, `POST /refunds/eligibility`,
+`POST /refunds/requests`. Staff (`X-API-Key`, personal keys `STAFF_API_KEYS` or the shared `STAFF_API_KEY`):
+`GET /staff/tickets/awaiting`, `POST /staff/tickets/{id}/decision`, `GET /staff/refunds/pending`,
+`POST /staff/refunds/{id}/approve|reject`, `GET /staff/model-info`. Health: `GET /health`, `GET /health/ready`.
+Development only: `GET /demo`, `/docs`. There is no `/chat` and no `/approvals`. Middleware: request id on every
+log line, access log without query strings, per-client rate limits with a staff lockout after wrong keys.
 
-- Unit tests: services (refund rules), preprocessing, model interfaces, state schemas.
-- Integration tests: API + test database, graph with a mocked LLM.
-- No test may call the real OpenAI API.
+## 6. Data model
+
+`customers`, `orders` (status, `cancelled_at`, `cancelled_by`), `order_items`, `shipments`, `refund_requests`
+(status pending_approval / approved / rejected, `decided_by`, `decided_at`, `decision_note`), `tickets` (status
+open / awaiting_approval / completed, link to its refund request, customer email for owner checks, reply,
+escalation reason). The ticket id is also the workflow's thread id. Money is integer cents; timestamps are
+timezone-aware UTC. Schema changes go through Alembic (`0001` initial, `0002` cancellation audit columns); a test
+checks the migrations match the models. There is no separate approvals table: decisions live on the refund request
+and on the order.
+
+## 7. Testing strategy (as built)
+
+- Unit tests (about 300) on in-memory or file SQLite: rules, services, graph, supervisor, adapters, ticket service,
+  API through `TestClient`, migrations, observability, rate limiting, staff keys, retrieval, training.
+- The agent tests use a fake intent model so routing does not depend on model quirks; real-model behavior is checked by
+  `ml.probe_eval`, `rag.evaluate` and manual end-to-end runs.
+- `tests/integration/` holds PostgreSQL race tests for cancellation and refund requests. They are skipped unless
+  `TEST_POSTGRES_URL` is set and have NOT been run yet.
+- No test calls an external API.
+
+## 8. Planned, not built
+
+LLM reply generation and its `llm` wrapper (needs an API key); semantic embeddings and hybrid retrieval; a real
+sentiment model; priority, routing and resolution-time models; `ticket_messages` and an `audit_logs` table;
+PostgreSQL checkpointer for several processes; HTTPS and stronger customer authentication; key rotation and
+revocation without a restart; payment, inventory and notification integrations; Docker image and PostgreSQL runs
+(the files exist but were never built or run). See `PROJECT_STATUS.md`.

@@ -222,9 +222,13 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
 - Docker and PostgreSQL are not installed (not needed until Phase 5).
 - Not verified yet: a real PostgreSQL connection, OpenAI API access (no key configured),
   and NLTK data downloads (e.g., stopwords/punkt) - these belong to later phases.
-- No models trained; no datasets chosen yet.
+- Models trained: TF-IDF + LogReg intent models (the served one is `intent_tfidf_lr_bitext_aug.joblib`), XGBoost and
+  BiLSTM experiments. Datasets: Bitext and Banking77 (downloaded, prepared). No sentiment/priority/routing models.
 
 ## Next task
+`docs/ARCHITECTURE.md` was rewritten on 2026-11-19 to match the code (the `/chat` and `/approvals` references are gone).
+Buildable without outside resources: key rotation/revocation and audit logging (security), mock payment/inventory/
+notification adapters with an outbox, hybrid retrieval and retrieval metrics. Blocked: Docker/PostgreSQL runs, OpenAI.
 All roadmap phases have code. Next depends on you: refund policy numbers, an OpenAI key (Phase 6.2), the Amazon Reviews
 license (sentiment), or better intent data (E5b). Also pending: build the Docker image and run on PostgreSQL where Docker exists.
 Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
