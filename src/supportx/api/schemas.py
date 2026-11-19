@@ -1,6 +1,7 @@
 """Request and response bodies. Pydantic validates every input before our code sees it."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -140,3 +141,13 @@ class RefundRequestResult(BaseModel):
 
 class HealthOut(BaseModel):
     status: str
+
+
+class AuditOut(BaseModel):
+    id: int
+    occurred_at: datetime
+    actor: str
+    action: str
+    target_type: str
+    target_id: str
+    detail: dict[str, Any] | None

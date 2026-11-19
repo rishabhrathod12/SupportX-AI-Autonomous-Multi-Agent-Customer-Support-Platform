@@ -61,6 +61,21 @@ still starts and the ticket endpoints answer 503.
 | `POST /staff/tickets/{id}/decision` | staff | approve/reject; an approved refund or cancellation is applied, then the ticket resumes |
 | `GET /staff/refunds/pending`, `POST /staff/refunds/{id}/approve` or `/reject` | staff | the same decisions by refund id (reject needs a note) |
 | `GET /staff/model-info` | staff | which intent model file (SHA-256) and settings are serving |
+| `GET /staff/audit?limit=&action=&target_id=` | staff | append-only trail: refund requested/approved/rejected, order cancelled, ticket decided, staff keys created/revoked (newest first) |
+
+### Staff keys without a restart
+
+Besides `STAFF_API_KEYS` / `STAFF_API_KEY` (read at start-up), keys can live in the database and change while the
+server runs. Only a SHA-256 hash is stored; the key is shown once.
+
+```powershell
+python -m supportx.services.staff_keys create jane --days 90    # prints the key once
+python -m supportx.services.staff_keys list
+python -m supportx.services.staff_keys revoke jane              # or: revoke --id 3
+```
+
+Rotation = create a new key, hand it over, revoke the old one; the old key stops working immediately. Requires
+migration `0003` (`alembic upgrade head`; or `APP_ENV=development`, which creates the tables).
 
 Cancellation rule (demo default): only an order that has not shipped can be cancelled; otherwise the customer gets
 a reason at once and no human is asked. Refund rule (demo defaults): 30 days after delivery; "not received" only
@@ -88,8 +103,9 @@ run**. Mount your trained model at `artifacts/models`.
 ## Not production-ready
 
 Customers are identified only by order number + email; no HTTPS; rate limits are in memory and per process (also
-limit at a proxy); staff keys cannot be rotated or revoked without a restart; nothing reverses a payment, releases
-stock or notifies the customer. Details and the open list: `PROJECT_STATUS.md`.
+limit at a proxy); the audit log lives in the same database (anyone with write access to it can alter it); the
+shared `STAFF_API_KEY` still lets the caller name the approver; nothing reverses a payment, releases stock or
+notifies the customer. Details and the open list: `PROJECT_STATUS.md`.
 
 ## Documentation
 - `docs/ARCHITECTURE.md` - architecture and design decisions

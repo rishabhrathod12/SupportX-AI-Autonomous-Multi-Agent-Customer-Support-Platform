@@ -6,11 +6,14 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from supportx.agents.tickets import TicketService
-from supportx.core import Settings
-from supportx.services import RefundPolicy, RefundWorkflow
+from supportx.core import Settings, get_logger
+from supportx.services import RefundPolicy, RefundWorkflow, StaffKeyService
+
+logger = get_logger(__name__)
 
 
 def get_settings_dep(request: Request) -> Settings:
@@ -55,6 +58,25 @@ def get_ticket_service(request: Request) -> TicketService:
 TicketsDep = Annotated[TicketService, Depends(get_ticket_service)]
 
 
+def _database_staff_lookup(request: Request, presented: str | None) -> tuple[str | None, bool]:
+    """(name for a valid database key or None, whether any active database key exists).
+
+    A database problem must not lock staff out of the keys configured in the environment, so it is
+    logged and treated as "no database key matched".
+    """
+    factory = getattr(request.app.state, "session_factory", None)
+    if factory is None:
+        return None, False
+    try:
+        with factory() as session:
+            service = StaffKeyService(session)
+            name = service.authenticate(presented or "")
+            return name, name is not None or service.has_active_keys()
+    except SQLAlchemyError as exc:
+        logger.error("Staff key lookup failed: %s", type(exc).__name__)
+        return None, False
+
+
 @dataclass(frozen=True)
 class StaffIdentity:
     """Who is calling. `name` is None for the shared key (the caller then states the approver)."""
@@ -63,21 +85,27 @@ class StaffIdentity:
 
 
 def require_staff(
+    request: Request,
     settings: Annotated[Settings, Depends(get_settings_dep)],
     x_api_key: Annotated[str | None, Header()] = None,
 ) -> StaffIdentity:
     """Allow the request only if it carries a configured staff key; say whose it is."""
     accepted = settings.staff_identities()
-    if not accepted:
-        raise HTTPException(
-            status_code=503,
-            detail="Staff endpoints are disabled: STAFF_API_KEY / STAFF_API_KEYS not configured.",
-        )
     provided = (x_api_key or "").encode()
     match: StaffIdentity | None = None
     for key, name in accepted:  # compare against every key: the time taken does not reveal which
         if secrets.compare_digest(provided, key.encode()) and x_api_key is not None:
             match = StaffIdentity(name)
+    database_has_keys = False
+    if match is None:  # keys created with `python -m supportx.services.staff_keys`
+        db_name, database_has_keys = _database_staff_lookup(request, x_api_key)
+        if db_name is not None:
+            match = StaffIdentity(db_name)
+    if not accepted and not database_has_keys and match is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Staff endpoints are disabled: STAFF_API_KEY / STAFF_API_KEYS not configured.",
+        )
     if match is None:
         raise HTTPException(
             status_code=401,

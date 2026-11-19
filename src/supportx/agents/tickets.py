@@ -35,6 +35,7 @@ from supportx.db.repositories import RefundRepository, TicketRepository, to_utc
 from supportx.ml import IntentClassifier
 from supportx.rag import Retriever
 from supportx.services import RefundPolicy, RefundWorkflow
+from supportx.services.audit import record_audit
 from supportx.services.cancellation import CancellationWorkflow
 
 logger = get_logger(__name__)
@@ -138,7 +139,9 @@ class TicketService:
             self._record_refund_decision(refund_id, decision)  # step 1 (idempotent)
         if cancel_target is not None:
             self._cancel_order(cancel_target, decision)  # step 1 (idempotent)
-        return self._resume(ticket_id, decision)  # step 2
+        view = self._resume(ticket_id, decision)  # step 2
+        self._audit_decision(ticket_id, decision, view.approval_kind)
+        return view
 
     def decide_refund(self, refund_id: int, decision: HumanDecision) -> TicketView | None:
         """Decide a refund request; if a paused ticket is waiting on it, resume that ticket too."""
@@ -146,7 +149,11 @@ class TicketService:
         with session_scope(self._engine) as session:
             ticket = TicketRepository(session).find_awaiting_by_refund(refund_id)
             ticket_id = ticket.id if ticket else None
-        return self._resume(ticket_id, decision) if ticket_id else None  # step 2
+        if not ticket_id:
+            return None
+        view = self._resume(ticket_id, decision)  # step 2
+        self._audit_decision(ticket_id, decision, view.approval_kind)
+        return view
 
     # ------------------------------------------------------------------ internals
     def _record_refund_decision(self, refund_id: int, decision: HumanDecision) -> None:
@@ -167,6 +174,17 @@ class TicketService:
                     f"Refund request {refund_id} was already {request.status.value}; "
                     f"it cannot be {target.value}."
                 )
+
+    def _audit_decision(self, ticket_id: str, decision: HumanDecision, kind: str | None) -> None:
+        with session_scope(self._engine) as session:
+            record_audit(
+                session,
+                decision.approver,
+                "ticket.decided",
+                "ticket",
+                ticket_id,
+                {"approved": decision.approved, "kind": kind, "note": decision.note},
+            )
 
     def _cancel_order(self, target: tuple[str | None, str | None], decision: HumanDecision) -> None:
         order_number, email = target

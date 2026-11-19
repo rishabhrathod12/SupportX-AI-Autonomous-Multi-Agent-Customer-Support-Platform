@@ -1,5 +1,7 @@
 """Staff endpoints: the human-approval step. Every route needs the X-API-Key header."""
 
+import json
+
 from fastapi import APIRouter, Request
 
 from supportx.agents.state import HumanDecision
@@ -14,13 +16,15 @@ from supportx.api.deps import (
 )
 from supportx.api.schemas import (
     ApproveIn,
+    AuditOut,
     RefundRequestOut,
     RejectIn,
     StaffTicketOut,
     TicketDecisionIn,
 )
 from supportx.core import NotFoundError
-from supportx.db.repositories import RefundRepository
+from supportx.db.repositories import RefundRepository, to_utc
+from supportx.services import list_audit
 
 router = APIRouter(prefix="/staff", tags=["staff"], dependencies=[StaffDep])
 
@@ -46,6 +50,25 @@ def model_info(request: Request) -> dict[str, object]:
         },
         "intent_model": service.model_info if service is not None else None,
     }
+
+
+@router.get("/audit", response_model=list[AuditOut])
+def audit_trail(
+    session: SessionDep, limit: int = 50, action: str | None = None, target_id: str | None = None
+) -> list[AuditOut]:
+    """Newest first. Filter by `action` (e.g. order.cancelled) or `target_id`."""
+    return [
+        AuditOut(
+            id=r.id,
+            occurred_at=to_utc(r.occurred_at) or r.occurred_at,
+            actor=r.actor,
+            action=r.action,
+            target_type=r.target_type,
+            target_id=r.target_id,
+            detail=json.loads(r.detail) if r.detail else None,
+        )
+        for r in list_audit(session, limit, action, target_id)
+    ]
 
 
 @router.get("/refunds/pending", response_model=list[RefundRequestOut])

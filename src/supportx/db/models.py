@@ -149,3 +149,30 @@ class RefundRequest(Base):
     decision_note: Mapped[str | None] = mapped_column(Text)
 
     order: Mapped[Order] = relationship(back_populates="refund_requests")
+
+
+class AuditLog(Base):
+    """Append-only record of a sensitive action. See supportx.services.audit."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    actor: Mapped[str] = mapped_column(String(120), index=True)  # staff name, "customer", "cli"
+    action: Mapped[str] = mapped_column(String(60), index=True)  # e.g. "order.cancelled"
+    target_type: Mapped[str] = mapped_column(String(40))
+    target_id: Mapped[str] = mapped_column(String(64), index=True)
+    detail: Mapped[str | None] = mapped_column(Text)  # JSON object, ids and numbers only
+
+
+class StaffKey(Base):
+    """A staff API key, stored as a SHA-256 hash. See supportx.services.staff_keys."""
+
+    __tablename__ = "staff_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -99,7 +99,7 @@ answers a denial at once, and otherwise pauses for approval; the order is change
 Customer: `POST /tickets`, `POST /tickets/status`, `POST /orders/lookup`, `POST /refunds/eligibility`,
 `POST /refunds/requests`. Staff (`X-API-Key`, personal keys `STAFF_API_KEYS` or the shared `STAFF_API_KEY`):
 `GET /staff/tickets/awaiting`, `POST /staff/tickets/{id}/decision`, `GET /staff/refunds/pending`,
-`POST /staff/refunds/{id}/approve|reject`, `GET /staff/model-info`. Health: `GET /health`, `GET /health/ready`.
+`POST /staff/refunds/{id}/approve|reject`, `GET /staff/model-info`, `GET /staff/audit`. Health: `GET /health`, `GET /health/ready`.
 Development only: `GET /demo`, `/docs`. There is no `/chat` and no `/approvals`. Middleware: request id on every
 log line, access log without query strings, per-client rate limits with a staff lockout after wrong keys.
 
@@ -109,8 +109,10 @@ log line, access log without query strings, per-client rate limits with a staff 
 (status pending_approval / approved / rejected, `decided_by`, `decided_at`, `decision_note`), `tickets` (status
 open / awaiting_approval / completed, link to its refund request, customer email for owner checks, reply,
 escalation reason). The ticket id is also the workflow's thread id. Money is integer cents; timestamps are
-timezone-aware UTC. Schema changes go through Alembic (`0001` initial, `0002` cancellation audit columns); a test
-checks the migrations match the models. There is no separate approvals table: decisions live on the refund request
+timezone-aware UTC. `audit_logs` (append-only: actor, action, target, JSON detail with ids and numbers only, never customer emails; written
+in the same transaction as the change it records) and `staff_keys` (SHA-256 hash of each key, optional expiry,
+revocation time; keys can be created, rotated and revoked without a restart). Schema changes go through Alembic
+(`0001` initial, `0002` cancellation columns, `0003` audit log and staff keys); a test checks the migrations match the models. There is no separate approvals table: decisions live on the refund request
 and on the order.
 
 ## 7. Testing strategy (as built)
@@ -126,7 +128,7 @@ and on the order.
 ## 8. Planned, not built
 
 LLM reply generation and its `llm` wrapper (needs an API key); semantic embeddings and hybrid retrieval; a real
-sentiment model; priority, routing and resolution-time models; `ticket_messages` and an `audit_logs` table;
-PostgreSQL checkpointer for several processes; HTTPS and stronger customer authentication; key rotation and
-revocation without a restart; payment, inventory and notification integrations; Docker image and PostgreSQL runs
+sentiment model; priority, routing and resolution-time models; `ticket_messages`; audit of failed staff logins and
+of customer-side events beyond refund requests; a write-once audit sink; PostgreSQL checkpointer for several
+processes; HTTPS and stronger customer authentication; an authenticated approver for the shared key; payment, inventory and notification integrations; Docker image and PostgreSQL runs
 (the files exist but were never built or run). See `PROJECT_STATUS.md`.

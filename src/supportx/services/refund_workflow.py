@@ -11,6 +11,7 @@ from supportx.core import NotFoundError, WorkflowError, get_logger
 from supportx.db.enums import RefundReason, RefundStatus
 from supportx.db.models import Order, RefundRequest
 from supportx.db.repositories import OrderRepository, RefundRepository, to_utc
+from supportx.services.audit import record_audit
 from supportx.services.orders import ensure_owner, find_order_for_customer
 from supportx.services.refund import (
     ExistingRefund,
@@ -103,6 +104,20 @@ class RefundWorkflow:
             )
             return decision, None
         request = self._refunds.add(order, decision.proposed_cents, reason)
+        record_audit(
+            self._session,
+            "customer",
+            "refund.requested",
+            "refund_request",
+            request.id,
+            {
+                "order": order.order_number,
+                "amount_cents": request.amount_cents,
+                "reason": reason.value,
+                "rules_version": decision.policy_version,
+            },
+            now,
+        )
         logger.info(
             "Refund request %d created for %s, awaiting approval", request.id, order.order_number
         )
@@ -161,5 +176,18 @@ class RefundWorkflow:
         request.decided_at = now or datetime.now(UTC)
         request.decision_note = note.strip() if note else None
         self._session.flush()
+        record_audit(
+            self._session,
+            request.decided_by,
+            f"refund.{status.value}",
+            "refund_request",
+            request.id,
+            {
+                "order": request.order.order_number,
+                "amount_cents": request.amount_cents,
+                "note": request.decision_note,
+            },
+            request.decided_at,
+        )
         logger.info("Refund request %d %s by %s", request.id, status.value, request.decided_by)
         return request

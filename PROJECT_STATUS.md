@@ -194,6 +194,13 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
 - [x] Personal staff keys (2026-11-19): `STAFF_API_KEYS=name:key,...` (keys >= 16 chars, validated at start-up). The recorded
       approver is the key's name and a caller cannot claim another; the shared `STAFF_API_KEY` still works and still needs a
       stated approver. 9 tests. Not done: key rotation/expiry, revoking one key without a restart, role separation.
+- [x] Audit log + revocable staff keys (2026-11-19, master-prompt Phase 7 part): `audit_logs` (refund requested/approved/
+      rejected, order cancelled, ticket decided, staff key created/revoked; same transaction as the change; no customer
+      emails), `GET /staff/audit`; `staff_keys` table with hashed keys, expiry, revocation, CLI
+      `python -m supportx.services.staff_keys`, migration 0003. A revoked key fails immediately; environment keys still work
+      if the key table is down. 14 new tests; 225 related tests pass; the full suite was NOT re-run. Not done: HTTPS,
+      stronger customer authentication, distributed rate limiting, audit of failed logins, tamper-proof audit storage,
+      authenticated approver for the shared key, authorization checks on agent tool calls, last-used tracking for keys.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

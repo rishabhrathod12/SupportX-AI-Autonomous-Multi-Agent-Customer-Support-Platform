@@ -20,6 +20,7 @@ from supportx.core import WorkflowError, get_logger
 from supportx.db.enums import OrderStatus
 from supportx.db.models import Order
 from supportx.db.repositories import OrderRepository
+from supportx.services.audit import record_audit
 from supportx.services.orders import ensure_owner
 
 logger = get_logger(__name__)
@@ -82,5 +83,8 @@ class CancellationWorkflow:
         order.cancelled_at = now or datetime.now(UTC)
         order.cancelled_by = approver
         self._session.flush()
+        record_audit(
+            self._session, approver, "order.cancelled", "order", order.order_number, None, now
+        )
         logger.info("Order %s cancelled, approved by %s", order.order_number, approver)
         return order

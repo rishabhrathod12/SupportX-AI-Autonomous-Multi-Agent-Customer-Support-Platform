@@ -2,17 +2,20 @@
 
 from supportx.db.enums import OrderStatus, RefundReason, RefundStatus, TicketStatus
 from supportx.db.models import (
+    AuditLog,
     Base,
     Customer,
     Order,
     OrderItem,
     RefundRequest,
     Shipment,
+    StaffKey,
     Ticket,
 )
 from supportx.db.session import init_db, make_engine, session_scope
 
 __all__ = [
+    "AuditLog",
     "Base",
     "Customer",
     "Order",
@@ -22,6 +25,7 @@ __all__ = [
     "RefundRequest",
     "RefundStatus",
     "Shipment",
+    "StaffKey",
     "Ticket",
     "TicketStatus",
     "init_db",
