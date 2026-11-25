@@ -42,11 +42,11 @@ policy passage matches ("never answer from nothing"), an agent still fails after
 | `db` | SQLAlchemy models, enums, sessions, repositories (UTC normalization, row locks). Alembic migrations live in `migrations/` at the repo root | `core` |
 | `data` | License-gated dataset download, split preparation, synthetic sample generator, similarity check, hand-written training phrasings (`augment`) | `core`, `nlp` |
 | `nlp` | Text cleaning and tokenization shared by training and serving (order numbers become the dataset's order-number token) | - |
-| `ml` | Intent classifier (TF-IDF + LogReg or XGBoost), training with MLflow, evaluation, the one-shot test scorer, the probe-set scorer | `core`, `nlp`, `data` |
+| `ml` | Intent classifier (TF-IDF + LogReg or XGBoost), training with MLflow, evaluation, the one-shot test scorer, the probe-set scorer, sentiment classifier + agent (no model trained), triage model pipeline (priority/team/resolution time; no model trained), end-to-end workflow evaluation (`agent_eval`) | `core`, `nlp`, `data`, `services` |
 | `dl` | Keras Embedding + BiLSTM intent model (a documented experiment; not used in serving) | `core`, `nlp`, `data`, `ml` helpers |
-| `llm` | EMPTY placeholder (no LLM integration yet) **(planned)** | - |
+| `llm` | OpenAI client wrapper (timeouts, SDK retries, generic errors, token and cost tracking), `OpenAIEmbedder` (same `Embedder` interface as the lexical one), grounded reply composer (rephrases only order-status and policy answers; falls back to the template). Tested with a fake SDK only; off by default | `core`, `agents` |
 | `rag` | Markdown chunking, local TF-IDF embedder with light stemming, FAISS exact index, retriever (`retrieve_for_answer` picks the best passage plus a close runner-up), retrieval scorer | `core`, `nlp` |
-| `services` | Business rules with no HTTP and no LLM: refund eligibility and workflow, cancellation rule and action, order lookup | `core`, `db` |
+| `services` | Business rules with no HTTP and no LLM: refund eligibility and workflow, cancellation rule and action, order lookup, audit log, staff keys, rule-based ticket triage | `core`, `db` |
 | `agents` | The graph, the Supervisor rules, `TicketState`, the agent interface (`ports.AgentSet`), real adapters (`adapters.py`), deterministic stubs (`stubs.py`), template replies, `TicketService` and the checkpointer wiring | `core`, `ml`, `rag`, `services`, `db` |
 | `api` | App factory, routers (customer, tickets, staff, health, demo), schemas, dependencies, request-logging and rate-limit middleware | `agents`, `services`, `db`, `core` |
 
@@ -99,9 +99,10 @@ answers a denial at once, and otherwise pauses for approval; the order is change
 Customer: `POST /tickets`, `POST /tickets/status`, `POST /orders/lookup`, `POST /refunds/eligibility`,
 `POST /refunds/requests`. Staff (`X-API-Key`, personal keys `STAFF_API_KEYS` or the shared `STAFF_API_KEY`):
 `GET /staff/tickets/awaiting`, `POST /staff/tickets/{id}/decision`, `GET /staff/refunds/pending`,
-`POST /staff/refunds/{id}/approve|reject`, `GET /staff/model-info`, `GET /staff/audit`. Health: `GET /health`, `GET /health/ready`.
+`POST /staff/refunds/{id}/approve|reject`, `GET /staff/model-info`, `GET /staff/audit`, `GET /staff/outbox`, `GET /staff/outbox/stats`, `POST /staff/outbox/{id}/retry`. Health: `GET /health`, `GET /health/ready`.
 Development only: `GET /demo`, `/docs`. There is no `/chat` and no `/approvals`. Middleware: request id on every
-log line, access log without query strings, per-client rate limits with a staff lockout after wrong keys.
+log line, access log without query strings, per-client rate limits with a staff lockout after wrong keys, security
+headers, a request-size limit and an optional Host allow-list (`api/security.py`; see `docs/SECURITY.md`).
 
 ## 6. Data model
 
@@ -112,7 +113,7 @@ escalation reason). The ticket id is also the workflow's thread id. Money is int
 timezone-aware UTC. `audit_logs` (append-only: actor, action, target, JSON detail with ids and numbers only, never customer emails; written
 in the same transaction as the change it records) and `staff_keys` (SHA-256 hash of each key, optional expiry,
 revocation time; keys can be created, rotated and revoked without a restart). Schema changes go through Alembic
-(`0001` initial, `0002` cancellation columns, `0003` audit log and staff keys, `0004` outbox events); a test checks the
+(`0001` initial, `0002` cancellation columns, `0003` audit log and staff keys, `0004` outbox events, `0005` ticket triage columns: priority, team, source, review flag, expected resolution hours); a test checks the
 migrations match the models. There is no separate approvals table: decisions live on the refund request
 and on the order.
 
@@ -140,7 +141,7 @@ PostgreSQL.
 
 ## 7. Testing strategy (as built)
 
-- Unit tests (about 300) on in-memory or file SQLite: rules, services, graph, supervisor, adapters, ticket service,
+- Unit tests (about 425) on in-memory or file SQLite: rules, services, graph, supervisor, adapters, ticket service,
   API through `TestClient`, migrations, observability, rate limiting, staff keys, retrieval, training.
 - The agent tests use a fake intent model so routing does not depend on model quirks; real-model behavior is checked by
   `ml.probe_eval`, `rag.evaluate` and manual end-to-end runs.
@@ -150,9 +151,10 @@ PostgreSQL.
 
 ## 8. Planned, not built
 
-LLM reply generation and its `llm` wrapper (needs an API key); semantic embeddings and hybrid retrieval; a real
-sentiment model; priority, routing and resolution-time models; `ticket_messages`; audit of failed staff logins and
-of customer-side events beyond refund requests; a write-once audit sink; PostgreSQL checkpointer for several
+Running the LLM reply composer and semantic embeddings against a real API (built, fake-SDK tests only; needs a key);
+a trained sentiment model and trained priority, team and resolution-time models (pipelines exist, no licensed or real
+data); `ticket_messages`; storing failed staff logins in the audit table (they are logged) and customer-side events
+beyond refund requests; a write-once audit sink; PostgreSQL checkpointer for several
 processes; HTTPS and stronger customer authentication; an authenticated approver for the shared key; REAL payment, inventory and notification providers (the outbox and
 interfaces exist, only mocks implement them); Docker image and PostgreSQL runs
 (the files exist but were never built or run). See `PROJECT_STATUS.md`.

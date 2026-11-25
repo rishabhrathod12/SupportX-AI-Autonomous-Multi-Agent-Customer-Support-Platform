@@ -45,7 +45,11 @@ still starts and the ticket endpoints answer 503.
 | `REFUND_RETURN_WINDOW_DAYS`, `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` | refund rule numbers (DEMO defaults 30 / 14 / `demo-1`); every refund decision records the version |
 | `BUSINESS_RULES_CONFIRMED` | set `true` only after the numbers are your real policy; production start-up logs a warning while it is `false`; `GET /staff/model-info` shows the live rules |
 | `RETRIEVAL_MIN_SCORE` | best-passage score needed to quote policy text, else a person takes over (default 0.1 = almost always answers; about 0.2 is balanced on the hand-written questions; trade-off in `docs/EXPERIMENTS.md`, E9) |
-| `INTEGRATIONS_MODE`, `OUTBOX_MAX_ATTEMPTS` | `disabled` (default) or `mock` for the outbox worker; attempts before an event goes `dead` (5) |
+| `INTEGRATIONS_MODE`, `OUTBOX_MAX_ATTEMPTS` | `disabled` (default), `mock` (demo adapters) or `live` (refuses to start: no real provider exists); attempts before an event goes `dead` (5) |
+| `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, `OPENAI_EMBEDDING_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`, price settings | OpenAI wrapper (never run against the real API); cost estimates only when you set the prices |
+| `LLM_REPLIES_ENABLED` | `false` (default). `true` lets the LLM rephrase order-status and policy replies behind a grounding check; refunds, cancellations, approvals and handoffs stay template text |
+| `SENTIMENT_MODEL_PATH`, `SENTIMENT_MIN_CONFIDENCE` | optional trained sentiment model (none shipped; unset = keyword rules) |
+| `MAX_REQUEST_BYTES`, `ALLOWED_HOSTS`, `HSTS_ENABLED` | request-size limit (64 KB), Host allow-list, HSTS header (only with real HTTPS); see `docs/SECURITY.md` |
 | `INTENT_MODEL_PATH`, `POLICY_DOCS_DIR`, `CHECKPOINT_DB_PATH` | model file, policy folder, where paused tickets are saved |
 | `INTENT_MIN_CONFIDENCE` | below this a ticket goes to a human (default 0.6) |
 | `RATE_LIMIT_PER_MINUTE`, `AUTH_FAILURES_PER_MINUTE` | per-client limits (120 / 10; 0 = off) |
@@ -63,6 +67,7 @@ still starts and the ticket endpoints answer 503.
 | `POST /staff/tickets/{id}/decision` | staff | approve/reject; an approved refund or cancellation is applied, then the ticket resumes |
 | `GET /staff/refunds/pending`, `POST /staff/refunds/{id}/approve` or `/reject` | staff | the same decisions by refund id (reject needs a note) |
 | `GET /staff/model-info` | staff | which intent model file (SHA-256) and settings are serving |
+| `GET /staff/outbox`, `GET /staff/outbox/stats`, `POST /staff/outbox/{id}/retry` | staff | follow-up queue, counts and oldest waiting age for monitoring, requeue a dead event |
 | `GET /staff/audit?limit=&action=&target_id=` | staff | append-only trail: refund requested/approved/rejected, order cancelled, ticket decided, staff keys created/revoked (newest first) |
 
 ### Payment, stock and customer-message follow-ups (outbox; MOCK adapters only)
@@ -103,12 +108,13 @@ after 14 days from shipping.
 ## Tests and checks
 
 ```powershell
-pytest                       # full suite: 301 passed at its last full run (about 5-8 minutes; TensorFlow is slow)
+pytest                       # full suite: 423 passed, 2 skipped (PostgreSQL race tests) at its last full run (3-10 minutes; TensorFlow is slow)
 ruff check src tests migrations ; ruff format --check src tests migrations
 mypy --strict src
 python -m supportx.ml.probe_eval artifacts/models/intent_tfidf_lr_bitext_aug.joblib --split dev --show-failures
 python -m supportx.rag.evaluate --split dev --show-misses
 python -m supportx.rag.metrics --split dev --legacy --show-misses   # Recall@K, Precision@K, MRR, false-answer rate
+python -m supportx.ml.agent_eval artifacts/models/intent_tfidf_lr_bitext_aug.joblib   # 17 end-to-end scenarios (synthetic)
 ```
 
 The holdout probe/retrieval sets and the test split of the datasets were each scored once for the reported numbers;
@@ -118,11 +124,12 @@ do not tune against them (`docs/EXPERIMENTS.md`).
 
 `alembic upgrade head` (reads `DATABASE_URL`) applies `migrations/`; a test checks the migrations match the models.
 `docker-compose.yml` (PostgreSQL, API, optional MLflow) and `docker/Dockerfile.api` exist but were **never built or
-run**. Mount your trained model at `artifacts/models`.
+run**. Mount your trained model at `artifacts/models`. Exact build, PostgreSQL verification, backup, rollback and
+recovery steps: `docs/DEPLOYMENT.md` (all unverified).
 
 ## Not production-ready
 
-Customers are identified only by order number + email; no HTTPS; rate limits are in memory and per process (also
+Customers are identified only by order number + email; HTTPS is not configured (example proxy file untested); rate limits are in memory and per process (also
 limit at a proxy); the audit log lives in the same database (anyone with write access to it can alter it); the
 shared `STAFF_API_KEY` still lets the caller name the approver; there is NO real payment, inventory or notification
 provider (mock adapters only), so no money moves, no stock changes and no customer is contacted. Details and the open list: `PROJECT_STATUS.md`.
@@ -131,11 +138,12 @@ provider (mock adapters only), so no money moves, no stock changes and no custom
 - `docs/ARCHITECTURE.md` - architecture and design decisions
 - `docs/EXPERIMENTS.md` - every experiment, with its caveats; `docs/EVALUATION.md` - results and limitations
 - `docs/DATASETS.md` - datasets, licenses, data checks
+- `docs/SECURITY.md` - what is protected, what is not; `docs/DEPLOYMENT.md` - Docker, PostgreSQL, backup, rollback, recovery (unverified)
 - `DEVELOPMENT_ROADMAP.md` - phased plan; `PROJECT_STATUS.md` - done / pending
 
 ## Project layout
 ```
-src/supportx/   core, db, nlp, ml, dl, rag, agents, services, api
+src/supportx/   core, db, nlp, ml, dl, rag, llm, agents, services, integrations, api
 migrations/     Alembic            scripts/   demo seed
 tests/          unit/              data/      raw/ and processed/ (ignored), sample/ (demo policies, probe sets)
 artifacts/      trained models (ignored)       docs/ docker/ notebooks/

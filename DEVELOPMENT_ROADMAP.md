@@ -54,3 +54,8 @@ Each: train, validate, evaluate, save, load, predict, tests.
 1. Dockerfile + docker-compose (API, PostgreSQL, MLflow)
 2. Observability: structured logging, model/version tracking
 3. Evaluation report, documentation, demo
+
+## Status note (2026-11-25)
+All phases above have code; see `PROJECT_STATUS.md` for what is verified and what is not. Items that still depend on
+outside resources: trained sentiment / priority / routing / resolution-time models (need licensed or real data), running the
+LLM and semantic retrieval for real (OpenAI key), and running Docker/PostgreSQL (`docs/DEPLOYMENT.md`).

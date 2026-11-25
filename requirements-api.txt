@@ -1,5 +1,5 @@
 # SupportX AI - serving dependencies (used by docker/Dockerfile.api)
-# Same pins as requirements.txt, but WITHOUT TensorFlow, Keras, MLflow, NLTK, OpenAI/LangChain
+# Same pins as requirements.txt, but WITHOUT TensorFlow, Keras, MLflow, NLTK, LangChain
 # wrappers: the API never imports them (checked with grep on src/supportx/{api,agents,services,
 # db,rag,core,ml/intent.py,nlp}). Keep the pins in sync with requirements.txt.
 
@@ -21,3 +21,4 @@ pydantic-settings~=2.16.3
 sqlalchemy~=2.1.8
 alembic~=1.20.1
 psycopg[binary]~=3.3.9
+openai~=3.50.0  # imported only when LLM_REPLIES_ENABLED=true

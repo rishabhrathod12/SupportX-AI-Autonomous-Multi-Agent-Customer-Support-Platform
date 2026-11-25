@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, committed; Docker files untested. Remaining items need user input
+Last updated: 2026-11-25 | Master-prompt phases 1-5, 7-10 done as far as possible without external resources; Docker/PostgreSQL unverified; real data, OpenAI key and your policy decisions still needed
 
 ## Completed
 - [x] Phase 0: workspace inspected, architecture, docs, folder skeleton, requirement files
@@ -290,10 +290,12 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
   BiLSTM experiments. Datasets: Bitext and Banking77 (downloaded, prepared). No sentiment/priority/routing models.
 
 ## Next task
-`docs/ARCHITECTURE.md` was rewritten on 2026-11-19 to match the code (the `/chat` and `/approvals` references are gone).
-Buildable without outside resources: key rotation/revocation and audit logging (security), mock payment/inventory/
-notification adapters with an outbox, hybrid retrieval and retrieval metrics. Blocked: Docker/PostgreSQL runs, OpenAI.
-All roadmap phases have code. Next depends on you: refund policy numbers, an OpenAI key (Phase 6.2), the Amazon Reviews
-license (sentiment), or better intent data (E5b). Also pending: build the Docker image and run on PostgreSQL where Docker exists.
-Still open elsewhere: sentiment model (blocked until the Amazon Reviews 2023 terms are read) and improving the
-DL intent model (needs the deferred Hugging Face/PyTorch install).
+All buildable work in the master prompt (phases 1-5 and 7-10) has code, tests and docs. What remains needs you or the environment:
+1. YOU: confirm the real refund/cancellation numbers (`BUSINESS_RULES_CONFIRMED=true`), choose `RETRIEVAL_MIN_SCORE` (about 0.2
+   is balanced, E9), and decide on the Amazon Reviews licence (sentiment).
+2. KEY: an OpenAI key + model names to run the LLM composer and semantic retrieval for real (then score
+   `python -m supportx.rag.metrics --embedder openai`).
+3. DATA: real labelled tickets (priority, team, resolution hours, sentiment, intents) to train and honestly evaluate those models.
+4. ENVIRONMENT: install Docker and PostgreSQL and run the checklist in `docs/DEPLOYMENT.md` (build, migrations, race tests,
+   outbox with two workers, restart recovery).
+5. Later: real payment/inventory/notification providers, HTTPS proxy, stronger customer verification, shared rate limiting.
