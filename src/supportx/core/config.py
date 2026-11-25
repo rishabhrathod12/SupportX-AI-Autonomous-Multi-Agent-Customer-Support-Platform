@@ -34,6 +34,15 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     openai_chat_model: str | None = None
     openai_embedding_model: str | None = None
+    openai_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    openai_max_retries: int = Field(default=2, ge=0, le=6)  # SDK retries with backoff
+    # Prices (USD per 1M tokens) for cost estimates. No defaults: unset = cost reported unknown.
+    openai_chat_input_per_mtok: float | None = Field(default=None, ge=0)
+    openai_chat_output_per_mtok: float = Field(default=0.0, ge=0)
+    openai_embedding_per_mtok: float | None = Field(default=None, ge=0)
+    # Off by default. When on (and a key + chat model are set), informational replies are
+    # rephrased by the LLM behind a grounding check; everything else keeps the template.
+    llm_replies_enabled: bool = False
 
     database_url: SecretStr | None = None  # contains a password, so also secret
 

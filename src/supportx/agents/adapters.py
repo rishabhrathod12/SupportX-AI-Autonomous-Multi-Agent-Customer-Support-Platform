@@ -13,6 +13,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from supportx.agents.ports import AgentSet
 from supportx.agents.replies import compose_reply
+from supportx.agents.state import TicketState
 from supportx.agents.stubs import stub_sentiment
 from supportx.core import ExternalServiceError, get_logger
 from supportx.db import RefundReason, session_scope
@@ -114,6 +115,7 @@ def build_real_agents(
     engine: Engine,
     policy: RefundPolicy | None = None,
     min_score: float = 0.1,
+    reply_composer: Callable[[TicketState], str] = compose_reply,
 ) -> AgentSet:
     """The production agent set: trained intent model, real retriever, real database services."""
     lookup_order, check_refund = make_database_agents(engine, policy)
@@ -135,5 +137,5 @@ def build_real_agents(
         search_policy=search_policy,
         lookup_order=lookup_order,
         check_refund=check_refund,
-        compose_reply=compose_reply,
+        compose_reply=reply_composer,
     )

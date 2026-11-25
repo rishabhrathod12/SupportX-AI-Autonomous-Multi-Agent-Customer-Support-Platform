@@ -185,7 +185,13 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       Not checked: a PENDING refund on a cancelled order; no customer notification; no stock/payment reversal (no such systems).
       Full suite 291 passed (one fixture count updated); ruff and mypy --strict clean; real-component run verified.
 - [x] (done in 7.2a/7.2b) The agents are wired to the real intent model, database services and retriever; only sentiment is still a stub.
-- [ ] Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
+- [x] Phase 6.2 code (2026-11-25): `supportx.llm` - `LLMClient` (SDK timeout + retries, errors mapped to generic
+      `ExternalServiceError`, token usage and cost estimate from YOUR configured prices, no prompts/keys in logs),
+      `OpenAIEmbedder` (same `Embedder` interface; NOT yet wired into the retriever), `make_llm_composer` (rephrases only
+      order-status and policy answers; refund/cancel/approval/handoff/missing-info text is never sent to the LLM; output must
+      keep exactly the template's numbers/identifiers or the template is used). `LLM_REPLIES_ENABLED=false` by default.
+      21 tests with a FAKE SDK; NEVER RUN AGAINST THE REAL API (no key). Verify against the installed openai 3.50.0 once a key exists.
+- [ ] (original entry) Phase 6.2: OpenAI embeddings and chat wrapper (retries, timeouts) + grounded answers; needs OPENAI_API_KEY and
       OPENAI_CHAT_MODEL / OPENAI_EMBEDDING_MODEL in `.env` (not configured). The installed `openai` package is a
       newer major version than I know well, so the wrapper must be checked against the installed SDK before use.
 - [x] Rate limiting (2026-11-18): per-client sliding-window limits (`RATE_LIMIT_PER_MINUTE`, default 120) and a lockout of

@@ -6,7 +6,7 @@ classification, sentiment, policy retrieval (RAG), order lookup and refund/cance
 human decision.** Served by FastAPI over SQLAlchemy.
 
 > Status: working end to end on a local demo (see `PROJECT_STATUS.md` for the full, honest list of what is
-> done, unverified and open). Key limits: no LLM (replies are templates; needs an OpenAI key), sentiment is a
+> done, unverified and open). Key limits: LLM integration is built and tested only with a fake SDK (never run against OpenAI; off by default, needs a key), sentiment is a
 > keyword stub, retrieval is lexical, the intent model was trained on synthetic data, and the Docker image and
 > PostgreSQL have never been run (not installed on the development machine). The refund and cancellation rules
 > use DEMO numbers, not a real policy. Evaluation: `docs/EVALUATION.md`.

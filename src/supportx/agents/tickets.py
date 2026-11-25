@@ -6,6 +6,7 @@ retry is safe: the already-recorded decision is recognised and only step 2 runs.
 """
 
 import sqlite3
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -18,8 +19,8 @@ from sqlalchemy import Engine
 
 from supportx.agents.adapters import build_real_agents
 from supportx.agents.graph import TicketOutcome, build_graph, resume_ticket, start_ticket
-from supportx.agents.replies import HANDOFF
-from supportx.agents.state import HumanDecision
+from supportx.agents.replies import HANDOFF, compose_reply
+from supportx.agents.state import HumanDecision, TicketState
 from supportx.agents.stubs import extract_order_number
 from supportx.core import (
     ConfigurationError,
@@ -269,8 +270,19 @@ def build_ticket_service(
     retriever = Retriever.from_documents(docs_dir)
     connection = sqlite3.connect(settings.checkpoint_db_path, check_same_thread=False)
     saver = SqliteSaver(connection)
+    composer: Callable[[TicketState], str] = compose_reply
+    if settings.llm_replies_enabled:
+        from supportx.llm import LLMClient, make_llm_composer  # lazy: needs the openai package
+
+        composer = make_llm_composer(LLMClient.from_settings(settings), compose_reply)
+        logger.info("LLM reply rephrasing is ON (grounded, template fallback)")
     agents = build_real_agents(
-        intent_model, retriever, engine, policy, min_score=settings.retrieval_min_score
+        intent_model,
+        retriever,
+        engine,
+        policy,
+        min_score=settings.retrieval_min_score,
+        reply_composer=composer,
     )
     graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
     return TicketService(engine, graph, info), connection

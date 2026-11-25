@@ -50,7 +50,9 @@ def main() -> None:
                 carrier="DemoPost",
                 tracking_number=f"TRK-{number}",
                 shipped_at=now - timedelta(days=shipped_days),
-                delivered_at=None if delivered_days is None else now - timedelta(days=delivered_days),
+                delivered_at=(
+                    None if delivered_days is None else now - timedelta(days=delivered_days)
+                ),
             )
 
         session.add_all(
