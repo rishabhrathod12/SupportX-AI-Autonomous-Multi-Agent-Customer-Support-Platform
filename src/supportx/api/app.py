@@ -30,6 +30,7 @@ from supportx.core import (
     get_settings,
     setup_logging,
 )
+from supportx.core.metrics import report_error
 from supportx.db import init_db, make_engine
 from supportx.services import RefundPolicy
 from supportx.services.refund import refund_policy_from_settings
@@ -134,8 +135,9 @@ def create_app(
         return _error(502, "An upstream service failed.")
 
     @app.exception_handler(SupportXError)
-    async def unexpected(_: Request, exc: SupportXError) -> JSONResponse:
+    async def unexpected(request: Request, exc: SupportXError) -> JSONResponse:
         logger.exception("Unhandled application error")
+        report_error(exc, route=request.url.path)
         return _error(500, "Internal server error.")
 
     return app

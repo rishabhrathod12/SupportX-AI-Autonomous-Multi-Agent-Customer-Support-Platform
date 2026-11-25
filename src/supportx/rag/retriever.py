@@ -1,6 +1,6 @@
 """Find the policy passages that best answer a question."""
 
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from supportx.core import DataError, get_logger
 from supportx.rag.chunking import Chunk, split_markdown
 from supportx.rag.embeddings import Embedder, TfidfEmbedder
 from supportx.rag.index import VectorIndex
+from supportx.rag.query import expand_query
 
 logger = get_logger(__name__)
 
@@ -29,9 +30,15 @@ def load_documents(directory: Path) -> dict[str, str]:
 
 
 class Retriever:
-    def __init__(self, embedder: Embedder, index: VectorIndex):
+    def __init__(
+        self,
+        embedder: Embedder,
+        index: VectorIndex,
+        query_rewriter: Callable[[str], str] | None = None,
+    ):
         self._embedder = embedder
         self._index = index
+        self._rewrite = query_rewriter or (lambda question: question)
 
     @classmethod
     def from_documents(
@@ -43,11 +50,13 @@ class Retriever:
         drop_stop_words: bool = False,
         heading_repeat: int = 2,
         embedder: Embedder | None = None,
+        expand_queries: bool = False,
     ) -> "Retriever":
         """Chunk the documents, embed them, and index everything.
 
         Default: fit the local lexical TF-IDF embedder on the chunks. Pass `embedder` (already
-        usable, e.g. `OpenAIEmbedder`) for semantic search; it is used as is and not fitted."""
+        usable, e.g. `OpenAIEmbedder`) for semantic search; it is used as is and not fitted.
+        `expand_queries` adds the thesaurus rewrite (`rag.query`) for the lexical embedder."""
         chunks: list[Chunk] = []
         for name, text in load_documents(directory).items():
             chunks.extend(split_markdown(text, name, max_chars, overlap))
@@ -60,7 +69,7 @@ class Retriever:
         index = VectorIndex(embedder.dim)
         index.add(chunks, vectors)
         logger.info("Indexed %d chunks from %s", len(chunks), directory)
-        return cls(embedder, index)
+        return cls(embedder, index, expand_query if expand_queries else None)
 
     def retrieve_for_answer(
         self,
@@ -95,7 +104,7 @@ class Retriever:
 
         `sources` restricts the search to those document files (metadata filter), e.g.
         {"cancellation_policy.md"} when the intent is already known to be about cancelling."""
-        vector = self._embedder.embed([query])[0]
+        vector = self._embedder.embed([self._rewrite(query)])[0]
         wanted = len(self._index) if sources is not None else k  # filter AFTER ranking everything
         found = [
             RetrievedChunk(chunk, score)

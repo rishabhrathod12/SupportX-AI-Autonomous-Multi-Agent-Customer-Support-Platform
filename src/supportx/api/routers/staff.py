@@ -25,6 +25,7 @@ from supportx.api.schemas import (
     TicketDecisionIn,
 )
 from supportx.core import NotFoundError
+from supportx.core.metrics import METRICS
 from supportx.db import OutboxEvent, OutboxStatus
 from supportx.db.repositories import RefundRepository, to_utc
 from supportx.integrations.outbox import list_events, outbox_stats, requeue
@@ -71,6 +72,13 @@ def _outbox_out(row: OutboxEvent) -> OutboxOut:
         provider_reference=row.provider_reference,
         is_mock=row.is_mock,
     )
+
+
+@router.get("/metrics")
+def metrics_snapshot() -> dict[str, Any]:
+    """In-process counters (this server process only; reset on restart): tickets by status and
+    escalation reason, retrieval answered/abstained and top score, LLM calls/tokens/cost/errors."""
+    return METRICS.snapshot()
 
 
 @router.get("/outbox/stats")

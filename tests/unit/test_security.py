@@ -55,3 +55,15 @@ def test_failed_staff_login_is_logged_without_the_key(caplog: pytest.LogCaptureF
     assert c.get("/staff/refunds/pending", headers={"x-api-key": secret}).status_code == 401
     assert "Staff authentication failed (wrong key)" in caplog.text
     assert secret not in caplog.text
+
+
+def test_cross_origin_requests_get_no_cors_permission() -> None:
+    """No CORS middleware is installed on purpose: browsers on other sites cannot read responses."""
+    c = client()
+    preflight = c.options(
+        "/tickets",
+        headers={"origin": "https://evil.example", "access-control-request-method": "POST"},
+    )
+    assert "access-control-allow-origin" not in preflight.headers
+    response = c.get("/health", headers={"origin": "https://evil.example"})
+    assert "access-control-allow-origin" not in response.headers

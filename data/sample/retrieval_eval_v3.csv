@@ -1,0 +1,31 @@
+split,question,relevant
+dev,How many days do I have to send something back?,refund_policy.md::Return window
+dev,I changed my mind about a purchase. Can I give it back?,refund_policy.md::Changed your mind
+dev,The mug came smashed. What do I do?,refund_policy.md::Damaged or not as described
+dev,Is a sale item refundable?,refund_policy.md::Final sale items
+dev,My parcel never showed up,refund_policy.md::Orders that have not arrived;shipping_policy.md::Lost or delayed parcels
+dev,When will my package get here?,shipping_policy.md::Delivery times
+dev,Who decides if I get my money back?,refund_policy.md::How refunds are approved
+dev,Can I swap the address for delivery?,shipping_policy.md::Changing the delivery address
+dev,How do I follow my shipment?,shipping_policy.md::Tracking your order
+dev,My order already left the warehouse and I want to stop it,cancellation_policy.md::Cancelling after shipping
+dev,How do I stop an order before it goes out?,cancellation_policy.md::Cancelling before shipping;cancellation_policy.md::How to cancel
+dev,Where do I tell you that I want to cancel?,cancellation_policy.md::How to cancel
+dev,How fast is express shipping?,shipping_policy.md::Delivery times
+dev,My tracking has not moved in a week,shipping_policy.md::Lost or delayed parcels
+dev,Will the money return to my card after you agree?,refund_policy.md::How refunds are approved
+holdout,Within what period can I get my money back after the item arrives?,refund_policy.md::Return window
+holdout,I just do not want the item anymore,refund_policy.md::Changed your mind
+holdout,The product is different from the listing,refund_policy.md::Damaged or not as described
+holdout,Can I return clearance items?,refund_policy.md::Final sale items
+holdout,My order is two weeks late,refund_policy.md::Orders that have not arrived;shipping_policy.md::Lost or delayed parcels
+holdout,How long does standard shipping take?,shipping_policy.md::Delivery times
+holdout,Can more than one refund be open for the same order?,refund_policy.md::How refunds are approved
+holdout,I moved house. Can the parcel go somewhere else?,shipping_policy.md::Changing the delivery address
+holdout,I received no tracking link,shipping_policy.md::Tracking your order
+holdout,Is it too late to cancel since it was dispatched?,cancellation_policy.md::Cancelling after shipping
+holdout,Can I cancel for free?,cancellation_policy.md::Cancelling before shipping
+holdout,What details do I need to give to cancel?,cancellation_policy.md::How to cancel
+holdout,Does the delivery clock start when I buy?,shipping_policy.md::Delivery times
+holdout,Do I need a picture when something arrives broken?,refund_policy.md::Damaged or not as described
+holdout,Is the return period counted from the day I ordered?,refund_policy.md::Return window

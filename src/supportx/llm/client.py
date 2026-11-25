@@ -16,6 +16,7 @@ import numpy as np
 import openai
 
 from supportx.core import ConfigurationError, ExternalServiceError, Settings
+from supportx.core.metrics import METRICS
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,12 @@ class UsageTracker:
         self._cost_known = True
 
     def add(self, prompt: int, completion: int, pricing: Pricing | None) -> None:
+        METRICS.inc("llm.calls")
+        METRICS.inc("llm.prompt_tokens", prompt)
+        METRICS.inc("llm.completion_tokens", completion)
+        if pricing is not None:
+            cost = prompt * pricing.input_per_mtok + completion * pricing.output_per_mtok
+            METRICS.inc("llm.cost_usd", cost / 1_000_000)
         with self._lock:
             self._calls += 1
             self._prompt += prompt
@@ -167,14 +174,17 @@ class LLMClient:
         try:
             return fn()
         except openai.RateLimitError as exc:
+            METRICS.inc("llm.errors", kind="rate_limit")
             logger.warning("OpenAI rate limit after retries")
             raise ExternalServiceError("The language service is busy; try again later.") from exc
         except openai.APITimeoutError as exc:
+            METRICS.inc("llm.errors", kind="timeout")
             logger.warning("OpenAI timeout after retries")
             raise ExternalServiceError("The language service timed out.") from exc
         except openai.AuthenticationError as exc:
             logger.error("OpenAI rejected the API key")
             raise ExternalServiceError("The language service is not authorized.") from exc
         except openai.OpenAIError as exc:  # connection, status, bad request, ...
+            METRICS.inc("llm.errors", kind="other")
             logger.error("OpenAI call failed: %s", type(exc).__name__)
             raise ExternalServiceError("The language service call failed.") from exc

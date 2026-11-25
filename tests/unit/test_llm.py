@@ -7,10 +7,11 @@ import httpx2 as httpx
 import numpy as np
 import openai
 import pytest
+from pydantic import SecretStr
 
 from supportx.agents.replies import HANDOFF, compose_reply
 from supportx.agents.state import TicketState
-from supportx.core import ConfigurationError, ExternalServiceError
+from supportx.core import ConfigurationError, ExternalServiceError, Settings
 from supportx.llm import LLMClient, OpenAIEmbedder, Pricing, is_grounded, make_llm_composer
 
 
@@ -167,3 +168,62 @@ def test_handoff_text_is_unchanged() -> None:
     sdk = FakeSDK()
     assert make_llm_composer(client(sdk), compose_reply)({"message": "m"}) == HANDOFF
     assert sdk.calls == 0
+
+
+# ---------------------------------------------------------------- configuration and bad responses
+def test_from_settings_without_a_key_is_a_clear_configuration_error() -> None:
+    settings = Settings(_env_file=None, openai_chat_model="m")  # type: ignore[call-arg]
+    with pytest.raises(ConfigurationError, match="OPENAI_API_KEY"):
+        LLMClient.from_settings(settings)
+
+
+def test_the_api_key_never_appears_in_repr_or_logs(caplog: pytest.LogCaptureFixture) -> None:
+    secret = "sk-test-secret-value-1234567890"
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, openai_api_key=SecretStr(secret), openai_chat_model="m"
+    )
+    assert secret not in repr(settings) and secret not in str(settings.model_dump())
+    caplog.set_level("DEBUG")
+    sdk = FakeSDK(error=openai.AuthenticationError("bad key", response=_response(), body=None))
+    with pytest.raises(ExternalServiceError) as caught:
+        LLMClient(sdk, "m", None).complete("s", "u")
+    assert secret not in caplog.text and secret not in str(caught.value)
+
+
+class OddSDK:
+    """Returns shapes a misbehaving provider might send."""
+
+    def __init__(self, chat: Any = None, embed: Any = None) -> None:
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=lambda **_: chat))
+        self.embeddings = SimpleNamespace(create=lambda **_: embed)
+
+
+def test_invalid_chat_responses_become_service_errors_not_crashes() -> None:
+    usage = SimpleNamespace(prompt_tokens=1, completion_tokens=1)
+    no_choices = SimpleNamespace(choices=[], usage=usage)
+    null_content = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=None))], usage=usage
+    )
+    for response in (no_choices, null_content):
+        with pytest.raises(ExternalServiceError):
+            LLMClient(OddSDK(chat=response), "m", None).complete("s", "u")
+
+
+def test_invalid_embedding_responses_become_service_errors() -> None:
+    wrong_count = SimpleNamespace(
+        data=[SimpleNamespace(embedding=[1.0, 0.0])], usage=SimpleNamespace(prompt_tokens=1)
+    )
+    with pytest.raises(ExternalServiceError):
+        LLMClient(OddSDK(embed=wrong_count), None, "e").embed(["a", "b"])  # asked 2, got 1
+    ragged = SimpleNamespace(
+        data=[SimpleNamespace(embedding=[1.0]), SimpleNamespace(embedding=[1.0, 2.0])],
+        usage=SimpleNamespace(prompt_tokens=1),
+    )
+    with pytest.raises((ExternalServiceError, ValueError)):
+        LLMClient(OddSDK(embed=ragged), None, "e").embed(["a", "b"])
+
+
+def test_a_non_string_reply_from_the_provider_is_rejected_by_the_grounding_check() -> None:
+    sdk = FakeSDK("x" * 5000)  # absurdly long reply: not accepted, template is used
+    state = order_state()
+    assert make_llm_composer(client(sdk), compose_reply)(state) == compose_reply(state)

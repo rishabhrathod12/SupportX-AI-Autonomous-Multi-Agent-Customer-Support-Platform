@@ -278,3 +278,62 @@ def test_a_semantic_embedder_can_be_plugged_in() -> None:
     hits = semantic.retrieve("How do I send an item back?", k=1)
     assert hits and hits[0].chunk.source == "refund_policy.md"
     assert "return" in hits[0].chunk.heading.lower() or "return" in hits[0].chunk.text.lower()
+
+
+# ---------------------------------------------------------------- query expansion (paraphrases)
+def test_expand_query_adds_policy_words_and_keeps_the_question() -> None:
+    from supportx.rag.query import expand_query
+
+    out = expand_query("How many days do I have to send something back?")
+    assert out.startswith("How many days") and "return" in out and "window days" in out
+    assert expand_query("What is your policy?") == "What is your policy?"  # nothing to add
+    assert "not arrived" in expand_query("a late order")
+    assert expand_query("a plate arrived") == "a plate arrived"  # 'late' inside 'plate' is ignored
+
+
+def test_expansion_is_off_by_default_and_changes_paraphrase_ranking() -> None:
+    plain = Retriever.from_documents(POLICIES)
+    expanded = Retriever.from_documents(POLICIES, expand_queries=True)
+    question = "The mug came smashed. What do I do?"
+    best = expanded.retrieve(question, k=1)[0].chunk
+    assert (best.source, best.heading.split(" > ")[-1]) == (
+        "refund_policy.md",
+        "Damaged or not as described",
+    )
+    assert plain.retrieve(question, k=1)[0].chunk.heading != best.heading
+
+
+@pytest.mark.parametrize(
+    ("question", "source", "section"),
+    [
+        (
+            "I changed my mind about a purchase. Can I give it back?",
+            "refund_policy.md",
+            "Changed your mind",
+        ),
+        ("How do I stop an order before it goes out?", "cancellation_policy.md", None),
+        ("Who decides if I get my money back?", "refund_policy.md", "How refunds are approved"),
+    ],
+)
+def test_paraphrased_policy_questions_reach_the_right_document(
+    question: str, source: str, section: str | None
+) -> None:
+    retriever = Retriever.from_documents(POLICIES, expand_queries=True)
+    top3 = retriever.retrieve(question, k=3)
+    assert top3[0].chunk.source == source
+    if section:
+        assert any(h.chunk.heading.endswith(section) for h in top3)
+
+
+def test_expansion_keeps_unrelated_questions_unanswered() -> None:
+    retriever = Retriever.from_documents(POLICIES, expand_queries=True)
+    assert retriever.retrieve("Tell me a joke about cats", k=3, min_score=0.15) == []
+
+
+def test_known_miss_the_right_section_is_found_but_not_first() -> None:
+    """Documented limitation (E10): "How to cancel" still ranks first for this phrasing. Check
+    where the right section lands; do not 'fix' by loosening other tests."""
+    retriever = Retriever.from_documents(POLICIES, expand_queries=True)
+    top3 = retriever.retrieve("My order already left the warehouse and I want to stop it", k=3)
+    assert top3[0].chunk.source == "cancellation_policy.md"  # right document, wrong section first
+    assert any(h.chunk.heading.endswith("Cancelling after shipping") for h in top3)

@@ -16,6 +16,7 @@ from supportx.agents.replies import compose_reply
 from supportx.agents.state import TicketState
 from supportx.agents.stubs import stub_sentiment
 from supportx.core import ExternalServiceError, get_logger
+from supportx.core.metrics import METRICS
 from supportx.db import RefundReason, session_scope
 from supportx.rag import Retriever
 from supportx.services import OrderService, RefundPolicy, RefundWorkflow
@@ -122,6 +123,10 @@ def build_real_agents(
     lookup_order, check_refund = make_database_agents(engine, policy)
 
     def search_policy(question: str) -> list[dict[str, Any]]:
+        hits = retriever.retrieve_for_answer(question, min_score=min_score)
+        METRICS.inc("retrieval.answered" if hits else "retrieval.abstained")
+        if hits:
+            METRICS.observe("retrieval.top_score", hits[0].score)
         return [
             {
                 "source": hit.chunk.source,
@@ -129,7 +134,7 @@ def build_real_agents(
                 "text": hit.chunk.text,
                 "score": round(hit.score, 4),
             }
-            for hit in retriever.retrieve_for_answer(question, min_score=min_score)
+            for hit in hits
         ]
 
     return AgentSet(

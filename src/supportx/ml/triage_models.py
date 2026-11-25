@@ -12,8 +12,10 @@ time, final status, customer rating etc. must not be added. Messages are dedupli
 split. The test split is only scored on request.
 """
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Self
 
@@ -182,10 +184,68 @@ def train_triage(
     return priority, team, time_model, report
 
 
-def save_models(directory: Path, **models: object) -> None:
+MANIFEST = "manifest.json"
+MODEL_NAMES = ("priority", "team", "resolution")
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def save_models(
+    directory: Path,
+    *,
+    priority: TriageClassifier,
+    team: TriageClassifier,
+    resolution: ResolutionTimeModel,
+    data_origin: str,
+    report: Mapping[str, Any] | None = None,
+) -> Path:
+    """Save the three models plus a manifest (version, time, data origin, file hashes, report).
+    `data_origin` must be stated by the caller ("real" or "synthetic"): a model is never
+    presented as real-customer performance unless it was trained and scored on real data."""
+    if data_origin not in ("real", "synthetic"):
+        raise ModelError("data_origin must be 'real' or 'synthetic'.")
     directory.mkdir(parents=True, exist_ok=True)
-    for name, model in models.items():
-        joblib.dump(model, directory / f"{name}.joblib")
+    files: dict[str, str] = {}
+    for name, model in zip(MODEL_NAMES, (priority, team, resolution), strict=True):
+        path = directory / f"{name}.joblib"
+        joblib.dump(model, path)
+        files[path.name] = _sha256(path)
+    manifest = {
+        "version": datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
+        "trained_at": datetime.now(UTC).isoformat(),
+        "data_origin": data_origin,
+        "files": files,
+        "report": dict(report or {}),
+    }
+    (directory / MANIFEST).write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
+    return directory / MANIFEST
+
+
+def load_models(
+    directory: Path,
+) -> tuple[TriageClassifier, TriageClassifier, ResolutionTimeModel, dict[str, Any]]:
+    """Load models saved by `save_models`, refusing files whose hash differs from the manifest
+    (joblib is pickle: only load directories you created yourself)."""
+    manifest_path = directory / MANIFEST
+    if not manifest_path.exists():
+        raise ModelError(f"No {MANIFEST} in {directory}; train with supportx.ml.triage_models.")
+    manifest: dict[str, Any] = json.loads(manifest_path.read_text(encoding="utf-8"))
+    loaded: list[Any] = []
+    for name in MODEL_NAMES:
+        path = directory / f"{name}.joblib"
+        if not path.exists() or manifest["files"].get(path.name) != _sha256(path):
+            raise ModelError(f"{path.name} is missing or does not match the manifest hash.")
+        loaded.append(joblib.load(path))
+    priority, team, resolution = loaded
+    if not (
+        isinstance(priority, TriageClassifier)
+        and isinstance(team, TriageClassifier)
+        and isinstance(resolution, ResolutionTimeModel)
+    ):
+        raise ModelError("The model files do not contain the expected model types.")
+    return priority, team, resolution, manifest
 
 
 if __name__ == "__main__":
@@ -195,9 +255,14 @@ if __name__ == "__main__":
     parser.add_argument("csv", type=Path)
     parser.add_argument("--out", type=Path, default=Path("artifacts/models/triage"))
     parser.add_argument("--score-test", action="store_true", help="score the test split (once!)")
+    parser.add_argument(
+        "--data-origin", choices=["real", "synthetic"], required=True, help="stored in manifest"
+    )
     args = parser.parse_args()
     p, t, r, result = train_triage(
         pd.read_csv(args.csv, encoding="utf-8"), score_test=args.score_test
     )
-    save_models(args.out, priority=p, team=t, resolution=r)
+    save_models(
+        args.out, priority=p, team=t, resolution=r, data_origin=args.data_origin, report=result
+    )
     print(json.dumps(result, indent=2))

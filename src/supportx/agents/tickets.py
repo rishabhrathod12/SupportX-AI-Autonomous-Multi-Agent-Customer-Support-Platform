@@ -30,16 +30,24 @@ from supportx.core import (
     WorkflowError,
     get_logger,
 )
+from supportx.core.metrics import METRICS, report_error
 from supportx.core.model_info import ModelInfo, describe_model_file
 from supportx.db import RefundStatus, Ticket, TicketStatus, session_scope
 from supportx.db.repositories import RefundRepository, TicketRepository, to_utc
 from supportx.ml import IntentClassifier
 from supportx.ml.sentiment import SentimentClassifier, make_sentiment_agent
+from supportx.ml.triage_models import load_models as load_triage_models
 from supportx.rag import Retriever
 from supportx.services import RefundPolicy, RefundWorkflow
 from supportx.services.audit import record_audit
 from supportx.services.cancellation import CancellationWorkflow
-from supportx.services.triage import Triage, priority_rank, ticket_facts, triage_with_rules
+from supportx.services.triage import (
+    Triage,
+    make_triager,
+    priority_rank,
+    ticket_facts,
+    triage_with_rules,
+)
 
 logger = get_logger(__name__)
 Graph = CompiledStateGraph[Any, Any, Any, Any]
@@ -124,6 +132,7 @@ class TicketService:
             # workflow machinery itself failed (e.g. the checkpoint store). Never show the customer
             # an error page: hand over to a person and keep the details in the logs.
             logger.exception("Workflow failed for ticket %s", ticket_id)
+            report_error(RuntimeError("ticket workflow failed"), route="tickets.submit")
             return self._record_failure(ticket_id)
         return self._record(ticket_id, outcome)
 
@@ -248,6 +257,20 @@ class TicketService:
                 ticket.refund_request_id = request.get("refund_request_id")
             ticket.updated_at = datetime.now(UTC)
             session.flush()
+            METRICS.inc("tickets.recorded", status=ticket.status.value)
+            if ticket.escalated:
+                METRICS.inc("tickets.escalated", reason=ticket.escalation_reason or "unknown")
+            # Agent execution trace: step names and outcome only, never the message text.
+            logger.info(
+                "Ticket %s: status=%s intent=%s confidence=%s steps=%s trace=%s escalation=%s",
+                ticket.id,
+                ticket.status.value,
+                state.get("intent"),
+                state.get("intent_confidence"),
+                state.get("steps"),
+                ">".join(state.get("trace", [])),
+                ticket.escalation_reason,
+            )
             return _view(ticket)
 
     def _apply_triage(self, ticket: Ticket, state: Mapping[str, Any], kind: str | None) -> None:
@@ -305,7 +328,9 @@ def build_ticket_service(
         info["modified_utc"],
     )
     intent_model = IntentClassifier.load(model_path)  # pickle: only load files you created
-    retriever = Retriever.from_documents(docs_dir)
+    retriever = Retriever.from_documents(
+        docs_dir, expand_queries=settings.retrieval_expand_queries
+    )
     connection = sqlite3.connect(settings.checkpoint_db_path, check_same_thread=False)
     saver = SqliteSaver(connection)
     composer: Callable[[TicketState], str] = compose_reply
@@ -325,6 +350,19 @@ def build_ticket_service(
             settings.sentiment_min_confidence,
         )
         logger.info("Sentiment model loaded from %s", sentiment_path.name)
+    triager = triage_with_rules
+    if settings.triage_models_dir:
+        priority_model, team_model, time_model, manifest = load_triage_models(
+            Path(settings.triage_models_dir)
+        )
+        triager = make_triager(
+            priority_model, team_model, time_model, settings.triage_min_confidence
+        )
+        logger.info(
+            "Triage models loaded: version %s, data origin %s",
+            manifest["version"],
+            manifest["data_origin"],
+        )
     agents = build_real_agents(
         intent_model,
         retriever,
@@ -335,4 +373,4 @@ def build_ticket_service(
         sentiment_agent=sentiment_agent,
     )
     graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
-    return TicketService(engine, graph, info), connection
+    return TicketService(engine, graph, info, triager), connection

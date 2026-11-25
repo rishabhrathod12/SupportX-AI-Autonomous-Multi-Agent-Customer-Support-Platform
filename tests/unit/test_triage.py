@@ -158,3 +158,66 @@ def test_models_reject_bad_labels_and_untrained_use() -> None:
         ResolutionTimeModel().fit([{"message": "a"}], [0.0])
     with pytest.raises(ModelError):
         ResolutionTimeModel()({"message": "a"})
+
+
+# ---------------------------------------------------------------- versioned save / checked load
+def trained_toy() -> tuple[Any, Any, Any, dict[str, Any]]:
+    return train_triage(toy_tickets())
+
+
+def test_models_are_saved_with_a_manifest_and_reload_identically(tmp_path: Any) -> None:
+    from supportx.ml.triage_models import MANIFEST, load_models, save_models
+
+    priority, team, time_model, report = trained_toy()
+    save_models(
+        tmp_path, priority=priority, team=team, resolution=time_model,
+        data_origin="synthetic", report=report,
+    )
+    assert (tmp_path / MANIFEST).exists()
+    p2, t2, r2, manifest = load_models(tmp_path)
+    assert manifest["data_origin"] == "synthetic" and set(manifest["files"]) == {
+        "priority.joblib", "team.joblib", "resolution.joblib",
+    }
+    facts_ = {"message": "urgent y", "intent": "x"}
+    assert p2(facts_) == priority(facts_) and t2(facts_) == team(facts_)
+    assert r2(facts_) == pytest.approx(time_model(facts_))
+
+
+def test_a_tampered_or_missing_model_file_is_refused(tmp_path: Any) -> None:
+    from supportx.ml.triage_models import load_models, save_models
+
+    priority, team, time_model, _ = trained_toy()
+    save_models(
+        tmp_path, priority=priority, team=team, resolution=time_model, data_origin="synthetic"
+    )
+    (tmp_path / "team.joblib").write_bytes(b"not the model")
+    with pytest.raises(ModelError, match="manifest hash"):
+        load_models(tmp_path)
+    (tmp_path / "team.joblib").unlink()
+    with pytest.raises(ModelError):
+        load_models(tmp_path)
+    with pytest.raises(ModelError, match="manifest"):
+        load_models(tmp_path / "nowhere")
+
+
+def test_data_origin_must_be_stated(tmp_path: Any) -> None:
+    from supportx.ml.triage_models import save_models
+
+    priority, team, time_model, _ = trained_toy()
+    with pytest.raises(ModelError):
+        save_models(tmp_path, priority=priority, team=team, resolution=time_model, data_origin="")
+
+
+def test_loaded_models_drive_the_triager_the_way_serving_builds_it(tmp_path: Any) -> None:
+    """Same construction as build_ticket_service (which needs the intent model, so is not run)."""
+    from supportx.ml.triage_models import load_models, save_models
+
+    priority, team, time_model, _ = trained_toy()
+    model_dir = tmp_path / "triage"
+    save_models(
+        model_dir, priority=priority, team=team, resolution=time_model, data_origin="synthetic"
+    )
+    p, t, r, _manifest = load_models(model_dir)
+    triage = make_triager(p, t, r, min_confidence=0.0)  # as build_ticket_service builds it
+    result = triage({"message": "urgent x ticket", "intent": "x", "urgency": "high"})
+    assert result.source in ("model", "rules+model") and result.expected_resolution_hours

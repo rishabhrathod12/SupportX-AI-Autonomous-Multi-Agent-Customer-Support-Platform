@@ -140,6 +140,7 @@ if __name__ == "__main__":
     parser.add_argument("--min-score", type=float, default=0.1)
     parser.add_argument("--legacy", action="store_true", help="add the 32 earlier dev questions")
     parser.add_argument("--show-misses", action="store_true")
+    parser.add_argument("--expand", action="store_true", help="thesaurus query rewrite")
     parser.add_argument(
         "--embedder",
         choices=["tfidf", "openai"],
@@ -154,7 +155,9 @@ if __name__ == "__main__":
 
         semantic = OpenAIEmbedder(LLMClient.from_settings(get_settings()))
     result = score_ranker(
-        single_ranker(Retriever.from_documents(POLICY_DIR, embedder=semantic)),
+        single_ranker(
+            Retriever.from_documents(POLICY_DIR, embedder=semantic, expand_queries=args.expand)
+        ),
         load_questions(args.split, args.legacy),
         args.min_score,
     )

@@ -159,7 +159,8 @@ def run_scenario(row: pd.Series, intent_model: IntentModel, retriever: Retriever
 def evaluate_scenarios(
     intent_model: IntentModel, scenarios: pd.DataFrame, retriever: Retriever | None = None
 ) -> dict[str, Any]:
-    retriever = retriever or Retriever.from_documents(POLICY_DIR)
+    # Same retriever setup as serving (query rewriting on, the Settings default)
+    retriever = retriever or Retriever.from_documents(POLICY_DIR, expand_queries=True)
     results = [run_scenario(row, intent_model, retriever) for _, row in scenarios.iterrows()]
     by_category: dict[str, list[int]] = {}
     for r in results:
