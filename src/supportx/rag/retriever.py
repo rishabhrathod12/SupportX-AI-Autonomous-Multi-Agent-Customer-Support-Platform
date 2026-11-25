@@ -42,17 +42,23 @@ class Retriever:
         stem: bool = True,
         drop_stop_words: bool = False,
         heading_repeat: int = 2,
+        embedder: Embedder | None = None,
     ) -> "Retriever":
-        """Chunk the documents, fit the local embedder on them, and index everything."""
+        """Chunk the documents, embed them, and index everything.
+
+        Default: fit the local lexical TF-IDF embedder on the chunks. Pass `embedder` (already
+        usable, e.g. `OpenAIEmbedder`) for semantic search; it is used as is and not fitted."""
         chunks: list[Chunk] = []
         for name, text in load_documents(directory).items():
             chunks.extend(split_markdown(text, name, max_chars, overlap))
         if not chunks:
             raise DataError(f"The documents in {directory} contain no text to index.")
         texts = [c.embedding_text_with(heading_repeat) for c in chunks]
-        embedder = TfidfEmbedder(stem=stem, drop_stop_words=drop_stop_words).fit(texts)
+        if embedder is None:
+            embedder = TfidfEmbedder(stem=stem, drop_stop_words=drop_stop_words).fit(texts)
+        vectors = embedder.embed(texts)  # before `.dim`: some embedders learn it from this call
         index = VectorIndex(embedder.dim)
-        index.add(chunks, embedder.embed(texts))
+        index.add(chunks, vectors)
         logger.info("Indexed %d chunks from %s", len(chunks), directory)
         return cls(embedder, index)
 

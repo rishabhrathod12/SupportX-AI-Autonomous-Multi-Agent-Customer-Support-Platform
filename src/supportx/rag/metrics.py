@@ -140,9 +140,21 @@ if __name__ == "__main__":
     parser.add_argument("--min-score", type=float, default=0.1)
     parser.add_argument("--legacy", action="store_true", help="add the 32 earlier dev questions")
     parser.add_argument("--show-misses", action="store_true")
+    parser.add_argument(
+        "--embedder",
+        choices=["tfidf", "openai"],
+        default="tfidf",
+        help="openai needs OPENAI_API_KEY and OPENAI_EMBEDDING_MODEL and makes paid API calls",
+    )
     args = parser.parse_args()
+    semantic = None
+    if args.embedder == "openai":
+        from supportx.core import get_settings
+        from supportx.llm import LLMClient, OpenAIEmbedder
+
+        semantic = OpenAIEmbedder(LLMClient.from_settings(get_settings()))
     result = score_ranker(
-        single_ranker(Retriever.from_documents(POLICY_DIR)),
+        single_ranker(Retriever.from_documents(POLICY_DIR, embedder=semantic)),
         load_questions(args.split, args.legacy),
         args.min_score,
     )

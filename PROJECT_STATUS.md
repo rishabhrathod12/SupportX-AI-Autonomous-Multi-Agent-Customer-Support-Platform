@@ -220,6 +220,12 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       KEY FINDING (E9): at 0.1 the system answers 100% of unanswerable questions; lexical scores cannot separate them cleanly,
       so the cutoff is a trade-off (about 0.2 answers 70-79% of real questions and refuses 83% of unanswerable). Needs your
       choice. Still open: semantic embeddings (OpenAI key or PyTorch), wiring the source filter to the intent.
+- [x] Phase 3 plumbing (2026-11-25): `Retriever.from_documents(..., embedder=...)` accepts any ready `Embedder` (e.g.
+      `OpenAIEmbedder`); `python -m supportx.rag.metrics --embedder openai` will score it on the frozen questions. Tested with
+      a fake synonym embedder only. NO semantic result exists: needs OPENAI_API_KEY + OPENAI_EMBEDDING_MODEL (paid calls).
+      NOT done: choosing RETRIEVAL_MIN_SCORE (your decision, see E9: ~0.2 balanced), wiring the source filter to the intent
+      (no intent-labelled retrieval questions to evaluate it on). Existing questions are synthetic/hand-written by the
+      same author: they show direction, not production quality.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -240,3 +241,40 @@ def test_min_score_filters_weak_matches(retriever: Retriever) -> None:
 def test_the_vocabulary_gap_of_the_lexical_embedder(retriever: Retriever) -> None:
     """Documents a KNOWN limit: with no shared words there is nothing to match."""
     assert retriever.retrieve("send my purchase back", k=3, min_score=0.2) == []
+
+
+# ---------------------------------------------------------------- pluggable (semantic) embedder
+class SynonymEmbedder:
+    """Stand-in for a semantic model: knows that 'send back' means 'return'. Learns dim lazily
+    on the first embed() call, like OpenAIEmbedder."""
+
+    VOCAB = ("return", "cancel", "ship", "refund")
+    SYNONYMS = {"send": "return", "back": "return", "stop": "cancel"}
+
+    def __init__(self) -> None:
+        self._dim: int | None = None
+
+    @property
+    def dim(self) -> int:
+        if self._dim is None:
+            raise ModelError("unknown until first embed")
+        return self._dim
+
+    def embed(self, texts: Sequence[str]) -> np.ndarray:
+        rows = np.zeros((len(texts), len(self.VOCAB)), dtype=np.float32)
+        for i, text in enumerate(texts):
+            for word in text.lower().replace(".", " ").split():
+                word = self.SYNONYMS.get(word, word)
+                for j, root in enumerate(self.VOCAB):
+                    if word.startswith(root):
+                        rows[i, j] += 1.0
+        norms = np.linalg.norm(rows, axis=1, keepdims=True)
+        self._dim = len(self.VOCAB)
+        return np.divide(rows, norms, out=np.zeros_like(rows), where=norms > 0)
+
+
+def test_a_semantic_embedder_can_be_plugged_in() -> None:
+    semantic = Retriever.from_documents(POLICIES, embedder=SynonymEmbedder())
+    hits = semantic.retrieve("How do I send an item back?", k=1)
+    assert hits and hits[0].chunk.source == "refund_policy.md"
+    assert "return" in hits[0].chunk.heading.lower() or "return" in hits[0].chunk.text.lower()
