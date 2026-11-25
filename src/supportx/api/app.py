@@ -18,6 +18,7 @@ from supportx.api.middleware import add_request_logging
 from supportx.api.ratelimit import add_rate_limiting
 from supportx.api.routers import customer, demo, health, staff
 from supportx.api.routers import tickets as tickets_router
+from supportx.api.security import add_security
 from supportx.core import (
     ConfigurationError,
     ExternalServiceError,
@@ -57,6 +58,17 @@ def create_app(
             settings.business_rules_version,
         )
 
+    if settings.app_env == "production":
+        if not settings.staff_identities():
+            logger.warning(
+                "No staff keys in the environment; staff access depends on database keys "
+                "(python -m supportx.services.staff_keys)."
+            )
+        if not settings.allowed_host_list():
+            logger.warning("ALLOWED_HOSTS is not set: the API answers to any Host header.")
+        if not settings.hsts_enabled:
+            logger.warning("HSTS_ENABLED is false: set it once the site is served over HTTPS.")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         own_engine = engine is None
@@ -94,6 +106,7 @@ def create_app(
         app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
 
     add_rate_limiting(app, settings)  # added first = inside the logger, so 429s are logged too
+    add_security(app, settings)  # inside the logger, outside the rate limiter
     add_request_logging(app)
     app.include_router(health.router)
     app.include_router(customer.router)

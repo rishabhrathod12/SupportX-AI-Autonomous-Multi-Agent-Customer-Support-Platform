@@ -107,6 +107,12 @@ def require_staff(
             detail="Staff endpoints are disabled: STAFF_API_KEY / STAFF_API_KEYS not configured.",
         )
     if match is None:
+        client = request.client.host if request.client else "unknown"
+        logger.warning(
+            "Staff authentication failed (%s) from %s",
+            "no key" if not x_api_key else "wrong key",
+            client,
+        )  # never the key itself
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API key.",

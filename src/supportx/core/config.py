@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # Per-client limits over a sliding minute, 0 = unlimited (caveats: supportx.api.ratelimit).
     rate_limit_per_minute: int = Field(default=120, ge=0)
     auth_failures_per_minute: int = Field(default=10, ge=0)  # wrong staff keys before a lockout
+    max_request_bytes: int = Field(default=65536, ge=0)  # 0 = no limit (Content-Length check)
+    allowed_hosts: str = ""  # comma-separated Host names the API answers to; empty = any
+    hsts_enabled: bool = False  # only turn on when really served over HTTPS
 
     # MLflow 3 deprecates the './mlruns' file store; SQLite is its recommended local backend.
     mlflow_tracking_uri: str = "sqlite:///mlflow.db"
@@ -133,6 +136,9 @@ class Settings(BaseSettings):
         if len({key for key, _ in found}) != len(found):
             raise ConfigurationError("Two staff keys are identical; every key must be unique.")
         return found
+
+    def allowed_host_list(self) -> list[str]:
+        return [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
 
     def require_openai_api_key(self) -> str:
         """Return the OpenAI key, or raise a clear error if it is not configured."""

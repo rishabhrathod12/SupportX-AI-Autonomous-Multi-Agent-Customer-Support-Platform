@@ -242,6 +242,11 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       real labelled ticket data, and the unit-test data is synthetic code-path data. Needs: real tickets with priority, team and
       resolution-time labels (>=100 distinct, 10+ per class), then evaluate chronologically before wiring models in.
       Not done: loading trained triage models from settings (nothing to load yet), a PostgreSQL run of migration 0005.
+- [x] Phase 7 hardening (2026-11-25): `supportx.api.security` (security headers on all responses incl. 4xx/413/429,
+      Content-Length size limit `MAX_REQUEST_BYTES`, optional `ALLOWED_HOSTS`, HSTS only with `HSTS_ENABLED`), failed staff
+      logins logged without the key, production start-up warnings, `docs/SECURITY.md`, untested `deploy/Caddyfile.example`.
+      6 tests. HTTPS is NOT configured or tested here. Still open: customer verification (needs a notification provider),
+      shared rate limiting, chunked-body limit, dependency scan.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

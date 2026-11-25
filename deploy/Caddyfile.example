@@ -1,0 +1,11 @@
+# EXAMPLE reverse proxy for HTTPS. NOT TESTED in this project (no Docker/Caddy was available).
+# Caddy obtains and renews certificates automatically for a real public domain.
+# Usage idea: run Caddy next to the api container and set, in the API environment:
+#   ALLOWED_HOSTS=support.example.com   HSTS_ENABLED=true
+# Replace support.example.com with your domain; the proxy talks to the api service on port 8000.
+support.example.com {
+	request_body {
+		max_size 64KB
+	}
+	reverse_proxy api:8000
+}
