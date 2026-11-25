@@ -322,3 +322,21 @@ Paraphrase questions answered: dev 3 right / 0 wrong, holdout 2 right / 0 wrong 
   intent training phrasings (as in E7) or semantic embeddings are what would raise it further.
 - CAVEATS: probes and paraphrases were written by one author; holdout n=9 informational, so one message is 11 points.
 
+
+### E12 - Can a coverage guard make the lexical retriever reject nonsense? (negative result, nothing shipped)
+Run date: 2026-11-25. Problem: "What is 17 times 23?" is answered with the delivery-times passage (score 0.26) because
+the single word "times" overlaps. Idea: reject a question when too few of its content words appear in the policy
+vocabulary. Checked on the DEV split only (15 paraphrase questions the retriever should answer, 10 out-of-scope probes);
+the holdout was not touched.
+- Fraction of content words found in the vocabulary (raw question): answerable paraphrases scored 0.00-1.00 (the
+  thesaurus exists precisely because paraphrases use other words), so it cannot separate them from nonsense.
+- Number of distinct content words matched after query rewriting: answerable questions scored 1-8 (four of the 15 scored
+  1-2: "The mug came smashed", "Where do I tell you that I want to cancel?"); out-of-scope probes scored 0-5, and
+  "I lost my debit card and need a new one" scored 5 (a card/payment question the policies do not cover).
+- Result: any cut-off that rejects "17 times 23" (1 matched word) also rejects at least 3 of 15 correct answers, while the
+  card question still passes. The guard would trade real answers for one nonsense case, so it was NOT added.
+- Conclusion: a bag-of-words retriever has no signal that separates "mentions a policy word" from "is about the policy".
+  Fixes that could work: semantic embeddings (`OpenAIEmbedder`, needs a key) or training the intent model with an
+  out-of-scope class on real customer messages. The fallback stays limited by the intent allow-list, the 0.2 score
+  floor and the offer of a person in every fallback reply.
+- CAVEATS: dev only, n=15 / n=10, probes written by one author.
