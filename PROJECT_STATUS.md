@@ -247,6 +247,11 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       logins logged without the key, production start-up warnings, `docs/SECURITY.md`, untested `deploy/Caddyfile.example`.
       6 tests. HTTPS is NOT configured or tested here. Still open: customer verification (needs a notification provider),
       shared rate limiting, chunked-body limit, dependency scan.
+- [x] Phase 9 evaluation (2026-11-25): `supportx.ml.agent_eval` + `data/sample/agent_scenarios.csv` (17 SYNTHETIC scenarios, run
+      through the real graph/services): 16/17 pass, 0 safety violations; failure s13 = out-of-scope question answered not
+      escalated. Evaluator tested (catches wrong expectations and a broken auto-approve). Intent-threshold sweep on dev probes
+      and a synthetic-vs-real table added to `docs/EVALUATION.md` (also corrected stale statements). No real-customer data exists.
+      Full suite before Phase 9: 423 passed, 2 skipped.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but
