@@ -21,7 +21,7 @@ from supportx.agents.adapters import build_real_agents
 from supportx.agents.graph import TicketOutcome, build_graph, resume_ticket, start_ticket
 from supportx.agents.replies import HANDOFF, compose_reply
 from supportx.agents.state import HumanDecision, TicketState
-from supportx.agents.stubs import extract_order_number
+from supportx.agents.stubs import extract_order_number, stub_sentiment
 from supportx.core import (
     ConfigurationError,
     ExternalServiceError,
@@ -34,6 +34,7 @@ from supportx.core.model_info import ModelInfo, describe_model_file
 from supportx.db import RefundStatus, Ticket, TicketStatus, session_scope
 from supportx.db.repositories import RefundRepository, TicketRepository, to_utc
 from supportx.ml import IntentClassifier
+from supportx.ml.sentiment import SentimentClassifier, make_sentiment_agent
 from supportx.rag import Retriever
 from supportx.services import RefundPolicy, RefundWorkflow
 from supportx.services.audit import record_audit
@@ -276,6 +277,17 @@ def build_ticket_service(
 
         composer = make_llm_composer(LLMClient.from_settings(settings), compose_reply)
         logger.info("LLM reply rephrasing is ON (grounded, template fallback)")
+    sentiment_agent: Callable[[str], tuple[str, str]] = stub_sentiment
+    if settings.sentiment_model_path:
+        sentiment_path = Path(settings.sentiment_model_path)
+        if not sentiment_path.exists():
+            raise ConfigurationError(f"Sentiment model not found at {sentiment_path}.")
+        sentiment_agent = make_sentiment_agent(
+            SentimentClassifier.load(sentiment_path),
+            stub_sentiment,
+            settings.sentiment_min_confidence,
+        )
+        logger.info("Sentiment model loaded from %s", sentiment_path.name)
     agents = build_real_agents(
         intent_model,
         retriever,
@@ -283,6 +295,7 @@ def build_ticket_service(
         policy,
         min_score=settings.retrieval_min_score,
         reply_composer=composer,
+        sentiment_agent=sentiment_agent,
     )
     graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
     return TicketService(engine, graph, info), connection

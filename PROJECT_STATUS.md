@@ -226,6 +226,13 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       NOT done: choosing RETRIEVAL_MIN_SCORE (your decision, see E9: ~0.2 balanced), wiring the source filter to the intent
       (no intent-labelled retrieval questions to evaluate it on). Existing questions are synthetic/hand-written by the
       same author: they show direction, not production quality.
+- [x] Phase 4 architecture (2026-11-25): `supportx.ml.sentiment` (`SentimentClassifier` negative/neutral/positive with
+      confidence, dedupe-before-split 70/15/15 pipeline, CLI `python -m supportx.ml.sentiment data.csv`, test split scored only
+      with `--score-test`), `make_sentiment_agent` (low confidence -> keyword rules; negative if model OR rules say so; urgency
+      always from rules), setting `SENTIMENT_MODEL_PATH` (unset = keyword rules, the default). 8 tests on tiny SYNTHETIC data
+      that only exercise code paths. NO MODEL IS TRAINED and NO SCORE EXISTS: the Amazon Reviews licence is still unverified,
+      so nothing was downloaded. Sentiment is NOT production-ready. Needs: licensed/in-domain labelled data, then evaluate
+      (incl. mixed/ambiguous messages) on a held-out set before setting the path.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

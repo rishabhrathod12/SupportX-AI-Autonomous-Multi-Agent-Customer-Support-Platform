@@ -116,6 +116,7 @@ def build_real_agents(
     policy: RefundPolicy | None = None,
     min_score: float = 0.1,
     reply_composer: Callable[[TicketState], str] = compose_reply,
+    sentiment_agent: Callable[[str], tuple[str, str]] = stub_sentiment,
 ) -> AgentSet:
     """The production agent set: trained intent model, real retriever, real database services."""
     lookup_order, check_refund = make_database_agents(engine, policy)
@@ -133,7 +134,7 @@ def build_real_agents(
 
     return AgentSet(
         understand=make_intent_agent(intent_model),
-        analyze_sentiment=stub_sentiment,  # TODO: replace once a sentiment model exists
+        analyze_sentiment=sentiment_agent,  # keyword rules unless a trained model is supplied
         search_policy=search_policy,
         lookup_order=lookup_order,
         check_refund=check_refund,

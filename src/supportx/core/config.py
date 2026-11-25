@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # Below this intent confidence a ticket goes to a human instead of being answered automatically.
     # 0.6 (not 0.4): measured on out-of-domain messages it catches many more confidently-wrong cases
     # for about 1% extra escalations on in-domain validation data (see docs/EXPERIMENTS.md, E5).
+    # Optional trained sentiment model. Unset = keyword rules (the default; no model is shipped).
+    sentiment_model_path: str | None = None
+    sentiment_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
     intent_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
 
     @field_validator("log_level", "app_env", mode="before")
