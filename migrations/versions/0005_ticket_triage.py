@@ -21,7 +21,9 @@ def upgrade() -> None:
         batch.add_column(sa.Column("team", sa.String(length=30), nullable=True))
         batch.add_column(sa.Column("triage_source", sa.String(length=20), nullable=True))
         batch.add_column(
-            sa.Column("triage_needs_review", sa.Boolean(), nullable=False, server_default=sa.false())
+            sa.Column(
+                "triage_needs_review", sa.Boolean(), nullable=False, server_default=sa.false()
+            )
         )
         batch.add_column(sa.Column("expected_resolution_hours", sa.Float(), nullable=True))
 
