@@ -76,7 +76,7 @@ class Settings(BaseSettings):
 
     # Payment / inventory / notification follow-ups (transactional outbox). "disabled": events are
     # saved but nothing delivers them. "mock": the worker uses MOCK adapters (nothing real happens).
-    integrations_mode: Literal["disabled", "mock"] = "disabled"
+    integrations_mode: Literal["disabled", "mock", "live"] = "disabled"
     outbox_max_attempts: int = Field(default=5, ge=1, le=50)
 
     # A policy answer needs its best passage to score at least this (cosine, 0-1); else the ticket

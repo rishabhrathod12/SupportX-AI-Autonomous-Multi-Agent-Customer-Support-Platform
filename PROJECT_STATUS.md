@@ -252,6 +252,12 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       escalated. Evaluator tested (catches wrong expectations and a broken auto-approve). Intent-threshold sweep on dev probes
       and a synthetic-vs-real table added to `docs/EVALUATION.md` (also corrected stale statements). No real-customer data exists.
       Full suite before Phase 9: 423 passed, 2 skipped.
+- [x] Phase 8 review (2026-11-25): architecture already had ports, mocks, outbox, idempotency keys, backoff, dead-letter and
+      audit rows. Added: `INTEGRATIONS_MODE=live` refuses to start (no real provider exists), mocks refuse a reused
+      idempotency key with different content (as real providers do), a re-enqueued key with a different payload is logged and
+      the first event kept, `GET /staff/outbox/stats` (counts per status, oldest pending age, `needs_attention`) for alerts.
+      4 new tests. STILL NO REAL PROVIDER and no payment records (a cancellation refunds the order total on the assumption
+      it was paid); no alert is sent anywhere, the stats endpoint is only something a monitor can poll.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

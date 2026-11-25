@@ -28,6 +28,12 @@ logger = get_logger(__name__)
 def build_providers(settings: Settings) -> Providers:
     if settings.integrations_mode == "mock":
         return Providers(MockPaymentProvider(), MockInventoryService(), MockNotifier())
+    if settings.integrations_mode == "live":
+        raise ConfigurationError(
+            "INTEGRATIONS_MODE is 'live' but no real payment, inventory or notification provider "
+            "is implemented or configured. Implement the protocols in supportx.integrations.ports, "
+            "supply credentials, and return them from build_providers. Nothing was sent."
+        )
     raise ConfigurationError(
         "INTEGRATIONS_MODE is 'disabled': no payment, inventory or notification provider is "
         "configured, so outbox events stay pending. Set INTEGRATIONS_MODE=mock for a demo with "

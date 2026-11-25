@@ -19,6 +19,7 @@ class _MockBase:
 
     def __init__(self) -> None:
         self._seen: dict[str, ProviderResult] = {}
+        self._fingerprints: dict[str, str] = {}
         self.calls = 0  # real executions (not idempotent replays)
         self._transient_failures = 0
         self._permanent_failure = False
@@ -30,8 +31,10 @@ class _MockBase:
     def fail_permanently(self) -> None:
         self._permanent_failure = True
 
-    def _execute(self, key: str, prefix: str) -> ProviderResult:
+    def _execute(self, key: str, prefix: str, fingerprint: str = "") -> ProviderResult:
         if key in self._seen:
+            if self._fingerprints[key] != fingerprint:  # real providers refuse this too
+                raise PermanentProviderError("idempotency key reused with different content")
             return self._seen[key]  # idempotent replay: no new effect
         if self._permanent_failure:
             raise PermanentProviderError("mock provider rejected the request")
@@ -41,6 +44,7 @@ class _MockBase:
         self.calls += 1
         result = ProviderResult(reference=f"mock-{prefix}-{self.calls}", is_mock=True)
         self._seen[key] = result
+        self._fingerprints[key] = fingerprint
         return result
 
 
@@ -53,7 +57,7 @@ class MockPaymentProvider(_MockBase):
 
     def refund(self, idempotency_key: str, order_number: str, amount_cents: int) -> ProviderResult:
         before = self.calls
-        result = self._execute(idempotency_key, "pay")
+        result = self._execute(idempotency_key, "pay", f"{order_number}:{amount_cents}")
         if self.calls > before:
             self.refunded.append((order_number, amount_cents))
         return result
@@ -68,7 +72,9 @@ class MockInventoryService(_MockBase):
         self, idempotency_key: str, order_number: str, lines: list[StockLine]
     ) -> ProviderResult:
         before = self.calls
-        result = self._execute(idempotency_key, "stock")
+        result = self._execute(
+            idempotency_key, "stock", f"{order_number}:{[(x.sku, x.quantity) for x in lines]}"
+        )
         if self.calls > before:
             self.released.append((order_number, lines))
         return result
@@ -83,7 +89,9 @@ class MockNotifier(_MockBase):
         self, idempotency_key: str, customer_id: int, template: str, params: dict[str, str]
     ) -> ProviderResult:
         before = self.calls
-        result = self._execute(idempotency_key, "msg")
+        result = self._execute(
+            idempotency_key, "msg", f"{customer_id}:{template}:{sorted(params.items())}"
+        )
         if self.calls > before:
             self.sent.append((customer_id, template, params))
         return result

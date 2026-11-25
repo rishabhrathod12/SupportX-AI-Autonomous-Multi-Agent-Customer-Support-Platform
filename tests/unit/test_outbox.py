@@ -299,3 +299,65 @@ def test_staff_can_list_events_and_retry_a_dead_one(engine: Engine, providers: P
 def test_staff_model_info_shows_the_integrations_mode(engine: Engine) -> None:
     body = make_client(engine).get("/staff/model-info", headers=JANE).json()
     assert body["integrations_mode"] == "disabled"
+
+
+# ---------------------------------------------------------------- Phase 8 additions
+def test_worker_refuses_live_mode_because_no_real_provider_exists(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("INTEGRATIONS_MODE", "live")
+    get_settings.cache_clear()
+    try:
+        assert worker.main(["--once"]) == 2
+        assert "no real" in capsys.readouterr().err
+    finally:
+        get_settings.cache_clear()
+
+
+def test_a_mock_refuses_a_reused_key_with_different_content() -> None:
+    from supportx.integrations.ports import PermanentProviderError
+
+    payments = MockPaymentProvider()
+    payments.refund("k", "ORD-1", 500)
+    assert payments.refund("k", "ORD-1", 500).is_mock  # same content: harmless replay
+    with pytest.raises(PermanentProviderError):
+        payments.refund("k", "ORD-1", 900)  # a real provider would refuse this too
+    assert payments.refunded == [("ORD-1", 500)]
+    stock = MockInventoryService()
+    notifier = MockNotifier()
+    from supportx.integrations.ports import StockLine
+
+    stock.release("s", "ORD-1", [StockLine("A", 1)])
+    notifier.send("n", 1, "t", {"a": "1"})
+    with pytest.raises(PermanentProviderError):
+        stock.release("s", "ORD-1", [StockLine("A", 2)])
+    with pytest.raises(PermanentProviderError):
+        notifier.send("n", 1, "t", {"a": "2"})
+
+
+def test_re_enqueueing_a_key_with_a_different_payload_keeps_the_first_event(
+    engine: Engine, caplog: pytest.LogCaptureFixture
+) -> None:
+    with session_scope(engine) as session:
+        first = enqueue(session, PAYMENT_REFUND, "dup", {"order_number": "A", "amount_cents": 100})
+        first_id = first.id
+    with session_scope(engine) as session:
+        again = enqueue(session, PAYMENT_REFUND, "dup", {"order_number": "A", "amount_cents": 999})
+        assert again.id == first_id and json.loads(again.payload)["amount_cents"] == 100
+    assert "different payload" in caplog.text
+
+
+def test_outbox_stats_for_monitoring(engine: Engine, providers: Providers) -> None:
+    client = make_client(engine)
+    cancel(engine)
+    assert client.get("/staff/outbox/stats").status_code == 401
+    stats = client.get("/staff/outbox/stats", headers=JANE).json()
+    assert stats["counts"]["pending"] == 3 and not stats["needs_attention"]
+    assert stats["oldest_pending_age_seconds"] is not None
+
+    assert isinstance(providers.payments, MockPaymentProvider)
+    providers.payments.fail_permanently()
+    OutboxDispatcher(engine, providers).run_once(NOW)
+    stats = client.get("/staff/outbox/stats", headers=JANE).json()
+    assert stats["counts"]["dead"] == 1 and stats["counts"]["sent"] == 2
+    assert stats["needs_attention"] is True

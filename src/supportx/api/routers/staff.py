@@ -1,6 +1,7 @@
 """Staff endpoints: the human-approval step. Every route needs the X-API-Key header."""
 
 import json
+from typing import Any
 
 from fastapi import APIRouter, Request
 
@@ -26,7 +27,7 @@ from supportx.api.schemas import (
 from supportx.core import NotFoundError
 from supportx.db import OutboxEvent, OutboxStatus
 from supportx.db.repositories import RefundRepository, to_utc
-from supportx.integrations.outbox import list_events, requeue
+from supportx.integrations.outbox import list_events, outbox_stats, requeue
 from supportx.services import list_audit
 
 router = APIRouter(prefix="/staff", tags=["staff"], dependencies=[StaffDep])
@@ -70,6 +71,12 @@ def _outbox_out(row: OutboxEvent) -> OutboxOut:
         provider_reference=row.provider_reference,
         is_mock=row.is_mock,
     )
+
+
+@router.get("/outbox/stats")
+def outbox_status(session: SessionDep) -> dict[str, Any]:
+    """Counts per status and the oldest waiting event: for monitoring and alerts."""
+    return outbox_stats(session)
 
 
 @router.get("/outbox", response_model=list[OutboxOut])

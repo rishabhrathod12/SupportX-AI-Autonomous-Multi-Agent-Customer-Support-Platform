@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from supportx.core import NotFoundError, WorkflowError, get_logger
@@ -61,6 +61,9 @@ def enqueue(
         select(OutboxEvent).where(OutboxEvent.idempotency_key == idempotency_key)
     ).one_or_none()
     if existing is not None:
+        if existing.payload != json.dumps(payload, sort_keys=True):
+            # Same key, different content: a caller bug. Keep the first event (never act twice).
+            logger.error("Outbox key %s was re-enqueued with a different payload", idempotency_key)
         return existing
     moment = now or datetime.now(UTC)
     row = OutboxEvent(
@@ -308,6 +311,30 @@ def list_events(
     if status is not None:
         stmt = stmt.where(OutboxEvent.status == status)
     return list(session.scalars(stmt))
+
+
+def outbox_stats(session: Session, now: datetime | None = None) -> dict[str, Any]:
+    """Counts per status plus the age of the oldest waiting event: what an alert would watch.
+    Rule of thumb: any `dead` event needs a person; a growing `oldest_pending_age_seconds`
+    means the worker is not running or a provider is down."""
+    moment = now or datetime.now(UTC)
+    counts = {status.value: 0 for status in OutboxStatus}
+    for status, n in session.execute(
+        select(OutboxEvent.status, func.count()).group_by(OutboxEvent.status)
+    ):
+        counts[status.value] = int(n)
+    oldest = session.scalars(
+        select(OutboxEvent)
+        .where(OutboxEvent.status == OutboxStatus.PENDING)
+        .order_by(OutboxEvent.created_at)
+        .limit(1)
+    ).one_or_none()
+    age = event_age_seconds(oldest, moment) if oldest is not None else None
+    return {
+        "counts": counts,
+        "oldest_pending_age_seconds": age,
+        "needs_attention": counts["dead"] > 0,
+    }
 
 
 def event_age_seconds(row: OutboxEvent, now: datetime | None = None) -> float:
