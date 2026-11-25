@@ -390,3 +390,46 @@ def test_a_retried_approval_after_a_crash_does_not_fail(
     monkeypatch.undo()
     done = service.decide_ticket(view.ticket_id, APPROVE)  # same decision again: safe
     assert done.status is TicketStatus.COMPLETED
+
+
+# ---------------------------------------------------------------- triage
+def test_every_ticket_gets_rule_based_triage(service: TicketService, engine: Engine) -> None:
+    view = service.submit("My mug arrived damaged, I want a refund", EMAIL, "ORD-1001")
+    assert view.team == "refunds" and view.priority == "high"  # "damaged" reads as negative
+    assert view.triage_source == "rules" and not view.triage_needs_review
+    assert view.expected_resolution_hours is None  # no model, no invented estimate
+    row = ticket_row(engine, view.ticket_id)
+    assert (row.priority, row.team) == ("high", "refunds")
+
+
+def test_the_staff_queue_lists_the_most_urgent_ticket_first(
+    service: TicketService, engine: Engine
+) -> None:
+    first = refund_ticket(service)  # older
+    second = service.submit("Please cancel my order", EMAIL, "ORD-3003").ticket_id
+    with session_scope(engine) as session:
+        row = session.get(Ticket, second)
+        assert row is not None
+        row.priority = "urgent"
+        first_row = session.get(Ticket, first)
+        assert first_row is not None
+        first_row.priority = "normal"
+    assert [t.ticket_id for t in service.list_awaiting()] == [second, first]
+
+
+def test_a_failing_triager_never_blocks_the_ticket(
+    engine: Engine, retriever: Retriever, tmp_path: Path
+) -> None:
+    saver, connection = sqlite_saver(tmp_path / "c2.db")
+    try:
+        service = make_service(engine, retriever, saver)
+
+        def broken(_facts: Any) -> Any:
+            raise RuntimeError("boom")
+
+        service._triager = broken
+        view = service.submit("Where is my order ORD-1001?", EMAIL)
+        assert view.status is TicketStatus.COMPLETED
+        assert view.triage_needs_review and view.priority == "high"
+    finally:
+        connection.close()

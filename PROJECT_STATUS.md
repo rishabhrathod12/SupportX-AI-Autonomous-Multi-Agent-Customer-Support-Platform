@@ -233,6 +233,15 @@ Last updated: 2026-11-18 | Current phase: intent data improvement (E7) done, com
       that only exercise code paths. NO MODEL IS TRAINED and NO SCORE EXISTS: the Amazon Reviews licence is still unverified,
       so nothing was downloaded. Sentiment is NOT production-ready. Needs: licensed/in-domain labelled data, then evaluate
       (incl. mixed/ambiguous messages) on a held-out set before setting the path.
+- [x] Phase 5 pipeline (2026-11-25): `supportx.services.triage` (rule-based priority + team, DEMO tables; models plug in via
+      `make_triager`, used only when confident, else rules + `needs_review`; a failing model never blocks a ticket; arrival-time
+      facts only), `supportx.ml.triage_models` (priority/team LogReg with confidence, resolution-time Ridge on log hours, dedupe
+      then chronological split when `created_at` exists, median-baseline MAE, test split only with `--score-test`). Tickets now
+      store priority/team/source/needs_review/expected_resolution_hours (migration 0005; staff output only); the staff queue
+      lists the most urgent first. Resolution time is None without a model (no invented hours). NO MODEL IS TRAINED: there is no
+      real labelled ticket data, and the unit-test data is synthetic code-path data. Needs: real tickets with priority, team and
+      resolution-time labels (>=100 distinct, 10+ per class), then evaluate chronologically before wiring models in.
+      Not done: loading trained triage models from settings (nothing to load yet), a PostgreSQL run of migration 0005.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

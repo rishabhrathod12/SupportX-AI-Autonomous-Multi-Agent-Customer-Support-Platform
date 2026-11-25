@@ -79,6 +79,11 @@ class StaffTicketOut(BaseModel):
     escalation_reason: str | None
     response: str | None
     created_at: datetime
+    priority: str | None = None
+    team: str | None = None
+    triage_source: str | None = None
+    triage_needs_review: bool = False
+    expected_resolution_hours: float | None = None
 
     @classmethod
     def from_view(cls, view: TicketView) -> "StaffTicketOut":

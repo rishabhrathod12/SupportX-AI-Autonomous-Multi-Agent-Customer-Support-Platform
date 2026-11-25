@@ -6,7 +6,7 @@ retry is safe: the already-recorded decision is recognised and only step 2 runs.
 """
 
 import sqlite3
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -39,6 +39,7 @@ from supportx.rag import Retriever
 from supportx.services import RefundPolicy, RefundWorkflow
 from supportx.services.audit import record_audit
 from supportx.services.cancellation import CancellationWorkflow
+from supportx.services.triage import Triage, priority_rank, ticket_facts, triage_with_rules
 
 logger = get_logger(__name__)
 Graph = CompiledStateGraph[Any, Any, Any, Any]
@@ -59,6 +60,11 @@ class TicketView(BaseModel):
     refund_request_id: int | None
     amount_cents: int | None
     created_at: datetime
+    priority: str | None = None
+    team: str | None = None
+    triage_source: str | None = None
+    triage_needs_review: bool = False
+    expected_resolution_hours: float | None = None
 
 
 def _view(ticket: Ticket) -> TicketView:
@@ -73,12 +79,24 @@ def _view(ticket: Ticket) -> TicketView:
         refund_request_id=ticket.refund_request_id,
         amount_cents=refund.amount_cents if refund else None,
         created_at=to_utc(ticket.created_at) or ticket.created_at,
+        priority=ticket.priority,
+        team=ticket.team,
+        triage_source=ticket.triage_source,
+        triage_needs_review=bool(ticket.triage_needs_review),
+        expected_resolution_hours=ticket.expected_resolution_hours,
     )
 
 
 class TicketService:
-    def __init__(self, engine: Engine, graph: Graph, model_info: ModelInfo | None = None):
+    def __init__(
+        self,
+        engine: Engine,
+        graph: Graph,
+        model_info: ModelInfo | None = None,
+        triager: Callable[[Mapping[str, Any]], Triage] = triage_with_rules,
+    ):
         self._engine = engine
+        self._triager = triager
         self._graph = graph
         self.model_info = model_info  # which intent model file this service runs (None in tests)
 
@@ -121,7 +139,10 @@ class TicketService:
     # ------------------------------------------------------------------ staff side
     def list_awaiting(self) -> list[TicketView]:
         with session_scope(self._engine) as session:
-            return [_view(t) for t in TicketRepository(session).list_awaiting()]
+            tickets = TicketRepository(session).list_awaiting()
+            # most urgent first; oldest first within the same priority (sort is stable)
+            tickets.sort(key=lambda t: -priority_rank(t.priority))
+            return [_view(t) for t in tickets]
 
     def decide_ticket(self, ticket_id: str, decision: HumanDecision) -> TicketView:
         """A person decides a paused ticket. Refund decisions are also recorded on the request."""
@@ -221,12 +242,26 @@ class TicketService:
             ticket.response = state.get("response")
             ticket.escalated = bool(state.get("escalated", False))
             ticket.escalation_reason = state.get("escalation_reason")
+            self._apply_triage(ticket, state, request.get("kind"))
             if request:
                 ticket.approval_kind = request.get("kind")
                 ticket.refund_request_id = request.get("refund_request_id")
             ticket.updated_at = datetime.now(UTC)
             session.flush()
             return _view(ticket)
+
+    def _apply_triage(self, ticket: Ticket, state: Mapping[str, Any], kind: str | None) -> None:
+        try:
+            result = self._triager(ticket_facts(state, kind))
+        except Exception:  # triage must never block a ticket
+            logger.exception("Triage failed for ticket %s", ticket.id)
+            ticket.priority, ticket.team = "high", "general"
+            ticket.triage_source, ticket.triage_needs_review = "rules", True
+            return
+        ticket.priority, ticket.team = result.priority, result.team
+        ticket.triage_source = result.source
+        ticket.triage_needs_review = result.needs_review
+        ticket.expected_resolution_hours = result.expected_resolution_hours
 
     def _record_failure(self, ticket_id: str) -> TicketView:
         with session_scope(self._engine) as session:
@@ -236,6 +271,8 @@ class TicketService:
             ticket.status = TicketStatus.COMPLETED
             ticket.escalated = True
             ticket.escalation_reason = "workflow_error"
+            ticket.priority, ticket.team = "high", "general"  # unknown cause: look soon
+            ticket.triage_source, ticket.triage_needs_review = "rules", True
             ticket.response = HANDOFF
             ticket.updated_at = datetime.now(UTC)
             session.flush()

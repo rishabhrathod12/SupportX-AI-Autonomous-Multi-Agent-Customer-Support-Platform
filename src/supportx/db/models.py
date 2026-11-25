@@ -12,6 +12,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -124,6 +125,12 @@ class Ticket(Base):
     response: Mapped[str | None] = mapped_column(Text)
     escalated: Mapped[bool] = mapped_column(default=False)
     escalation_reason: Mapped[str | None] = mapped_column(String(60))
+    # Triage (services.triage): known when the ticket is recorded; for staff queues only.
+    priority: Mapped[str | None] = mapped_column(String(10))
+    team: Mapped[str | None] = mapped_column(String(30))
+    triage_source: Mapped[str | None] = mapped_column(String(20))
+    triage_needs_review: Mapped[bool] = mapped_column(default=False)
+    expected_resolution_hours: Mapped[float | None] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
