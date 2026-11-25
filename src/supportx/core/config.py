@@ -96,6 +96,9 @@ class Settings(BaseSettings):
     triage_min_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
     sentiment_model_path: str | None = None
     sentiment_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
+    # Knowledge fallback: a low-confidence INFORMATIONAL message is answered from the policy text
+    # when the best passage scores at least this much (0 = off; escalates as before otherwise).
+    knowledge_fallback_min_score: float = Field(default=0.2, ge=0.0, le=1.0)
     intent_min_confidence: float = Field(default=0.6, ge=0.0, le=1.0)
 
     @field_validator("log_level", "app_env", mode="before")

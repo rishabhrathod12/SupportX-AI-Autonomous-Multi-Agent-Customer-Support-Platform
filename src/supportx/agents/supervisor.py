@@ -61,8 +61,45 @@ def _escalate(reason: str) -> Decision:
     return Decision(RESPOND, {"escalated": True, "escalation_reason": reason})
 
 
-def decide_next(state: Mapping[str, Any], min_confidence: float = MIN_CONFIDENCE) -> Decision:
-    """Pick the next step for a ticket. Called after every agent finishes."""
+# Intents whose answer is plain policy text. Anything else (refunds, cancellations, orders,
+# complaints, payments, accounts, unknown intents) stays with a person when the model is unsure.
+FALLBACK_INTENTS = frozenset(
+    {
+        "check_refund_policy",
+        "check_cancellation_fee",
+        "delivery_options",
+        "delivery_period",
+        "change_shipping_address",
+    }
+)
+
+
+def _fallback_allowed(state: Mapping[str, Any]) -> bool:
+    """May a LOW-confidence message be answered from the policy documents instead of escalated?
+
+    Only when the model's own best guess is one of `FALLBACK_INTENTS`, the message names no order,
+    and the customer is not upset. A guessed refund, cancellation, order, complaint, human request
+    or any other intent still goes to a person.
+    """
+    return (
+        state.get("intent") in FALLBACK_INTENTS
+        and not state.get("order_number")
+        and state.get("sentiment") != "negative"
+        and state.get("urgency") != "high"
+    )
+
+
+def decide_next(
+    state: Mapping[str, Any],
+    min_confidence: float = MIN_CONFIDENCE,
+    fallback_min_score: float | None = None,
+) -> Decision:
+    """Pick the next step for a ticket. Called after every agent finishes.
+
+    `fallback_min_score` (None = off) enables the knowledge fallback: a low-confidence message that
+    passes `_fallback_allowed` is searched in the policy documents, and answered only if the best
+    passage scores at least this much; otherwise it escalates exactly as before.
+    """
     if state.get("response"):
         return Decision(END)
     if state.get("steps", 0) >= MAX_STEPS:
@@ -76,7 +113,14 @@ def decide_next(state: Mapping[str, Any], min_confidence: float = MIN_CONFIDENCE
         return Decision(SENTIMENT)
 
     if state.get("intent_confidence", 0.0) < min_confidence:
-        return _escalate("low_confidence")
+        if fallback_min_score is None or not _fallback_allowed(state):
+            return _escalate("low_confidence")
+        if "passages" not in state:
+            return Decision(KNOWLEDGE, {"knowledge_fallback": True})
+        passages = state["passages"]
+        if not passages or passages[0]["score"] < fallback_min_score:
+            return _escalate("low_confidence")
+        return Decision(RESPOND)
     if state.get("sentiment") == "negative" and state.get("urgency") == "high":
         return _escalate("urgent_negative")
 

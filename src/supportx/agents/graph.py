@@ -71,12 +71,13 @@ def build_graph(
     checkpointer: BaseCheckpointSaver[Any] | None = None,
     retry: RetryPolicy | None = None,
     min_confidence: float = MIN_CONFIDENCE,
+    knowledge_fallback_min_score: float | None = None,
 ) -> CompiledStateGraph[Any, Any, Any, Any]:
     """Assemble the workflow. Pass a checkpointer to allow pausing for human approval."""
     retry = retry or DEFAULT_RETRY
 
     def supervisor(state: TicketState) -> dict[str, Any]:
-        decision = decide_next(state, min_confidence)
+        decision = decide_next(state, min_confidence, knowledge_fallback_min_score)
         return {
             **decision.update,
             "next": decision.next,

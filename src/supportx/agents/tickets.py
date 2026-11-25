@@ -258,6 +258,8 @@ class TicketService:
             ticket.updated_at = datetime.now(UTC)
             session.flush()
             METRICS.inc("tickets.recorded", status=ticket.status.value)
+            if state.get("knowledge_fallback") and not ticket.escalated:
+                METRICS.inc("tickets.knowledge_fallback")
             if ticket.escalated:
                 METRICS.inc("tickets.escalated", reason=ticket.escalation_reason or "unknown")
             # Agent execution trace: step names and outcome only, never the message text.
@@ -372,5 +374,10 @@ def build_ticket_service(
         reply_composer=composer,
         sentiment_agent=sentiment_agent,
     )
-    graph = build_graph(agents, saver, min_confidence=settings.intent_min_confidence)
+    graph = build_graph(
+        agents,
+        saver,
+        min_confidence=settings.intent_min_confidence,
+        knowledge_fallback_min_score=settings.knowledge_fallback_min_score or None,
+    )
     return TicketService(engine, graph, info, triager), connection

@@ -28,6 +28,7 @@ class TicketState(TypedDict, total=False):
     refund: dict[str, Any]  # the rule engine's recommendation (+ request id if one was created)
     approval: dict[str, Any]  # the human's decision
     missing_info: list[str]
+    knowledge_fallback: bool  # answered from policy text although the intent was uncertain
 
     # --- outcome ---
     response: str

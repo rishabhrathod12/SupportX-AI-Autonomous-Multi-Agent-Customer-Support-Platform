@@ -98,7 +98,10 @@ def run_scenario(row: pd.Series, intent_model: IntentModel, retriever: Retriever
     action = _expected(row["human_action"]) or "none"
     try:
         agents = build_real_agents(intent_model, retriever, engine)
-        service = TicketService(engine, build_graph(agents, SqliteSaver(connection)))
+        graph = build_graph(
+            agents, SqliteSaver(connection), knowledge_fallback_min_score=0.2  # as served
+        )
+        service = TicketService(engine, graph)
         first = service.submit(str(row["message"]), _expected(row["email"]), order_key)
         final = first
         approved_by_human = False

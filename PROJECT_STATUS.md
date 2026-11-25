@@ -258,6 +258,10 @@ Last updated: 2026-11-25 | Master-prompt phases 1-5, 7-10 done as far as possibl
       the first event kept, `GET /staff/outbox/stats` (counts per status, oldest pending age, `needs_attention`) for alerts.
       4 new tests. STILL NO REAL PROVIDER and no payment records (a cancellation refunds the order total on the assumption
       it was paid); no alert is sent anywhere, the stats endpoint is only something a monitor can poll.
+- [x] Knowledge fallback (2026-11-25, E11): low-confidence INFORMATIONAL questions are answered from policy text instead of
+      escalating (allow-list of intents, no order named, not upset, passage >= `KNOWLEDGE_FALLBACK_MIN_SCORE` 0.2). Replay on the
+      served model: dev 9/20 and holdout 3/9 low-confidence informational messages answered; 0 refund/cancel/order/care messages
+      answered; 1 out-of-scope dev message answered. Modest gain; the rest still goes to a person. Replay, not live traffic.
 - [ ] API limits before production, still open: customers identified only by order number + email, no HTTPS, no PostgreSQL
       run, rate limits need a proxy/gateway layer too.
 - [ ] Row locking (`SELECT ... FOR UPDATE`) that stops two simultaneous refund requests for one order is written but

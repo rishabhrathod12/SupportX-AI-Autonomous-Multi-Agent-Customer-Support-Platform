@@ -298,3 +298,27 @@ Run date: 2026-11-25. Questions: `data/sample/retrieval_eval_v3.csv`, 15 `dev` +
   n=15, so one question is 6.7 points. The gain only covers phrasings listed in the thesaurus; it is not semantic
   understanding. Semantic embeddings (OpenAI key or PyTorch) remain the real fix and have NOT been run.
 
+### E11 - Knowledge fallback for low-confidence informational questions (probe set + paraphrase questions)
+Run date: 2026-11-25. Motivation: the demo's metrics showed most paraphrased policy questions were stopped by the intent
+model's confidence check (`low_confidence`, 6 of 8 escalations) before retrieval ever ran, so the E10 gain was invisible.
+Change: when confidence is below `INTENT_MIN_CONFIDENCE`, the supervisor searches the policy documents instead of escalating,
+but ONLY if (a) the model's best guess is in the allow-list `FALLBACK_INTENTS` (check_refund_policy, check_cancellation_fee,
+delivery_options, delivery_period, change_shipping_address), (b) the message names no order, (c) sentiment is not negative and
+urgency not high, and (d) the best passage scores at least `KNOWLEDGE_FALLBACK_MIN_SCORE` (0.2; 0 = off). Everything else
+escalates exactly as before. The reply says the assistant was not completely sure and offers a person.
+Measured by replaying real served-model outputs (intent probe set + the v3 paraphrase questions, which count as informational):
+
+| Split | Low-confidence informational messages | Answered by the fallback | Refund/cancel/order/care messages answered | Out-of-scope answered |
+|---|---|---|---|---|
+| dev (design decisions) | 20 | 9 | 0 of 11 low-confidence | 1 of 9 ("What is 17 times 23?") |
+| HOLDOUT (scored once) | 9 | 3 | 0 of 5 low-confidence | 0 of 4 |
+
+Paraphrase questions answered: dev 3 right / 0 wrong, holdout 2 right / 0 wrong (the right section was shown).
+- Design history, from dev only: a first gate that treated any "knowledge" route as informational also answered a payment
+  problem and a lost-card message because unknown intents default to a policy-search route; it was replaced by the explicit
+  allow-list. A threshold of 0.25 rejected two correct passages (0.23, 0.24), so 0.2 was chosen.
+- Remaining weakness: the lexical retriever cannot tell a nonsense question from a delivery question when words overlap
+  (the "17 times 23" answer, score 0.26). The gain is modest; most low-confidence messages still go to a person. More realistic
+  intent training phrasings (as in E7) or semantic embeddings are what would raise it further.
+- CAVEATS: probes and paraphrases were written by one author; holdout n=9 informational, so one message is 11 points.
+

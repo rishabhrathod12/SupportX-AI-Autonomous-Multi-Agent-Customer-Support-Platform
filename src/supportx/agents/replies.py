@@ -71,6 +71,11 @@ def compose_reply(state: TicketState) -> str:
         reply = f"According to our {first['source']} ({first['heading']}): {first['text']}"
         for extra in others:  # the runner-up, when it scored nearly as well
             reply += f"\n\nAlso relevant ({extra['source']}, {extra['heading']}): {extra['text']}"
+        if state.get("knowledge_fallback"):
+            reply += (
+                "\n\nI wasn't completely sure what you were asking. If this doesn't answer it, "
+                "reply with a few more details and a member of our team will help."
+            )
         return reply
 
     return HANDOFF  # nothing we can say with confidence
