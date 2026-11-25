@@ -291,7 +291,7 @@ Last updated: 2026-11-25 | Master-prompt phases 1-5, 7-10 done as far as possibl
 
 ## Next task
 All buildable work in the master prompt (phases 1-5 and 7-10) has code, tests and docs. What remains needs you or the environment:
-1. YOU: confirm the real refund/cancellation numbers (`BUSINESS_RULES_CONFIRMED=true`), and decide on the Amazon Reviews licence (sentiment). (`RETRIEVAL_MIN_SCORE` was set to 0.2 on 2026-11-25.)
+1. YOU: confirm the real refund/cancellation numbers (`BUSINESS_RULES_CONFIRMED=true`), and decide on the Amazon Reviews licence (sentiment). (`RETRIEVAL_MIN_SCORE` was set to 0.15 on 2026-11-25.)
 2. KEY: an OpenAI key + model names to run the LLM composer and semantic retrieval for real (then score
    `python -m supportx.rag.metrics --embedder openai`).
 3. DATA: real labelled tickets (priority, team, resolution hours, sentiment, intents) to train and honestly evaluate those models.
@@ -299,3 +299,4 @@ All buildable work in the master prompt (phases 1-5 and 7-10) has code, tests an
    outbox with two workers, restart recovery).
 5. Later: real payment/inventory/notification providers, HTTPS proxy, stronger customer verification, shared rate limiting.
 - [x] RETRIEVAL_MIN_SCORE default changed 0.1 -> 0.2 (2026-11-25, your decision; E9 trade-off: fewer unanswerable questions answered, about 20-30% of real questions now go to a person). Applies to settings, compose and build_real_agents; library/eval function defaults stay 0.1 so old experiments reproduce.
+- [x] RETRIEVAL_MIN_SCORE changed again 0.2 -> 0.15 (2026-11-25, your decision, after the demo showed 0.2 handed over an answerable delivery question). E9 dev numbers at 0.15: 89% of real questions answered (70% answered AND right), 67% of unanswerable still answered. Same places as the 0.2 change.

@@ -263,7 +263,7 @@ go down to 0.11. The trade-off on dev (baseline ranker; the hybrid was within 0.
 | 0.30 | 0.32 | 0.32 | 0.00 |
 
 Holdout, baseline: cutoff 0.10 answers 100% of real questions (71% right), false answers 100%; cutoff 0.20 answers 79% (64%
-right), false answers 17%. The cutoff is now a setting, `RETRIEVAL_MIN_SCORE`, **default was 0.1 here; the serving default was then set to 0.2 by the project owner on 2026-11-25**; choosing is a
+right), false answers 17%. The cutoff is now a setting, `RETRIEVAL_MIN_SCORE`, **default was 0.1 here; the serving default was then set by the project owner on 2026-11-25: first 0.2, then 0.15 after a demo showed 0.2 handed over an answerable delivery-options question**; choosing is a
 product decision (staff time against quoting an irrelevant passage). Around 0.20 looks like the balanced region on this data.
 
 The five example questions today (top passages, baseline): "Can I cancel my order?" gets all three cancellation sections;
