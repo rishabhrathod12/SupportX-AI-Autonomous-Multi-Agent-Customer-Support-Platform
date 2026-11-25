@@ -179,7 +179,7 @@ def test_the_cutoff_setting_decides_whether_a_weak_match_is_quoted() -> None:
     strict = build_real_agents(_FakeIntent(), retriever, engine, min_score=0.5)
     assert lenient.search_policy(question) != []  # answers with something loosely related
     assert strict.search_policy(question) == []  # handed to a person instead
-    assert Settings(_env_file=None).retrieval_min_score == 0.1  # type: ignore[call-arg]
+    assert Settings(_env_file=None).retrieval_min_score == 0.2  # type: ignore[call-arg]
     with pytest.raises(ValueError):
         Settings(_env_file=None, retrieval_min_score=1.5)  # type: ignore[call-arg]
 

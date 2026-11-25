@@ -114,7 +114,7 @@ def build_real_agents(
     retriever: Retriever,
     engine: Engine,
     policy: RefundPolicy | None = None,
-    min_score: float = 0.1,
+    min_score: float = 0.2,
     reply_composer: Callable[[TicketState], str] = compose_reply,
     sentiment_agent: Callable[[str], tuple[str, str]] = stub_sentiment,
 ) -> AgentSet:
