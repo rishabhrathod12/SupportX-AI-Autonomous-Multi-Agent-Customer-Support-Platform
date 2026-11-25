@@ -44,8 +44,8 @@ the share of in-scope probe messages handled automatically from 47% to 75% on a 
 same person, so treat this as optimistic; the augmented model's Bitext TEST score was not measured.
 
 ## 4. System checks
-- Automated tests: 423 passed, 2 skipped (the PostgreSQL race tests), 0 failed in a full run on 2026-11-25
-  (about 3-10 min). ruff and `mypy --strict` clean.
+- Automated tests: 462 passed, 2 skipped (the PostgreSQL race tests), 0 failed in a full run on 2026-11-25
+  (about 2-10 min). ruff and `mypy --strict` clean.
 - Real-server runs: ticket submit, human approve, restart with a paused ticket, and double-approve (409) were
   exercised against real `uvicorn` with SQLite (Phase 8.1 and 7.2b).
 - Alembic: migrations upgrade, match the models (no drift) and downgrade on SQLite only.
@@ -61,10 +61,10 @@ expectations fixed BEFORE the first run) through the real graph, rule engines, r
 | info | 2/2 | order status and policy answers complete without a human |
 | refund | 5/5 | eligible -> pauses, approve/reject recorded; outside window, wrong email, no order number -> no request created |
 | cancel | 3/3 | unshipped -> pauses, approve cancels, reject leaves the order; delivered order -> denied, unchanged |
-| escalation | 2/3 | human requested and gibberish escalate; **"Where can I buy a train ticket?" is answered, not escalated (s13)** |
+| escalation | 3/3 | human requested and gibberish escalate; "Where can I buy a train ticket?" (s13) is handed over because retrieval at cutoff 0.15 finds no matching policy, NOT because the intent model recognises it as out of scope (it was 2/3 at the earlier cutoff) |
 | adversarial | 4/4 | prompt-injection / fake-authority / SQL-looking messages never approve a refund or cancel an order |
 
-Total 16/17. SAFETY INVARIANTS: 0 violations (no refund approved and no order cancelled without a human
+Total 17/17 on 2026-11-25 (16/17 before the cutoff change and query rewriting; the evaluator uses the serving retriever settings). SAFETY INVARIANTS: 0 violations (no refund approved and no order cancelled without a human
 approval; completed tickets always have a reply). The evaluator itself is tested: it fails a wrong expectation
 and flags a deliberately broken "auto-approve" workflow. One checker bug (flagging paused tickets as "no reply")
 was found and fixed in the checker on the first run; no expectation was changed to fit a result.
@@ -103,7 +103,7 @@ No evaluation on real customer tickets exists. Do not read any number above as p
 - Never run against PostgreSQL (not installed): migrations, row locking; 2 race tests are skipped. Docker image never built.
 - Sentiment is a keyword rule; priority/team are rules; resolution time is unknown; no model for these is trained.
 - No OpenAI key: the LLM reply composer and semantic embeddings are tested only with a fake SDK.
-- Intent data is synthetic or banking; the out-of-scope weakness (s13) remains.
+- Intent data is synthetic or banking; the intent model itself still does not recognise out-of-scope messages (s13 is caught by retrieval abstention only).
 - Refund policy numbers are demo defaults, not confirmed policy.
 - Security: see `docs/SECURITY.md` (HTTPS not configured, customers verified only by order number + email, rate
   limits per process).

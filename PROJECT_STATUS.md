@@ -300,3 +300,15 @@ All buildable work in the master prompt (phases 1-5 and 7-10) has code, tests an
 5. Later: real payment/inventory/notification providers, HTTPS proxy, stronger customer verification, shared rate limiting.
 - [x] RETRIEVAL_MIN_SCORE default changed 0.1 -> 0.2 (2026-11-25, your decision; E9 trade-off: fewer unanswerable questions answered, about 20-30% of real questions now go to a person). Applies to settings, compose and build_real_agents; library/eval function defaults stay 0.1 so old experiments reproduce.
 - [x] RETRIEVAL_MIN_SCORE changed again 0.2 -> 0.15 (2026-11-25, your decision, after the demo showed 0.2 handed over an answerable delivery question). E9 dev numbers at 0.15: 89% of real questions answered (70% answered AND right), 67% of unanswerable still answered. Same places as the 0.2 change.
+- [x] FINAL AUDIT ROUND (2026-11-25, second master prompt). Verified: repo clean at start, Docker/psql still absent. Added:
+      (A) retrieval query rewriting `rag/query.py` + `RETRIEVAL_EXPAND_QUERIES` (default on in serving): paraphrase holdout (n=15,
+      scored once) Recall@3 0.73 -> 0.93, answered-and-right 0.47 -> 0.87; no regression on older sets; E10 in EXPERIMENTS.md;
+      optimistic (one author), lexical only, semantic embeddings still NOT run. (B) LLM tests: missing key, key never in repr/logs,
+      malformed chat/embedding responses. (C) triage models: `manifest.json` (version, data origin, SHA-256), hash-checked loading,
+      `TRIAGE_MODELS_DIR` wiring; no model is trained. (D) real-data workflow `data/real.py` + `ml/real_eval.py`: import format,
+      redaction (email/phone/card/long numbers), word-normalized dedupe, hash-stable splits, second-labeler adjudication, refuses
+      <100 labeled messages, test split scored once per model; `data/real/` git-ignored; fixtures are invented code-path data.
+      (I) `core/metrics.py` + `GET /staff/metrics`, per-ticket agent trace logs (no message text), `register_error_hook`.
+      (G) CORS pinned off by test. Workflow evaluation 17/17, 0 safety violations (s13 now caught by retrieval abstention).
+      Full suite 462 passed, 2 skipped. STILL BLOCKED: Docker/PostgreSQL (E), real OpenAI run, real data, real providers,
+      real refund numbers, customer verification, HTTPS.

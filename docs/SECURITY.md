@@ -12,6 +12,8 @@ What exists, what was tested, and what is still missing. Nothing here has been p
   optional `ALLOWED_HOSTS` (Host header allow-list).
 - Response headers on every response: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Referrer-Policy: no-referrer`, `Cache-Control: no-store`; `Strict-Transport-Security` only when `HSTS_ENABLED=true`.
+- CORS: no CORS middleware is installed, so browsers on other sites cannot read API responses (tested). Add an explicit
+  allow-list only if a separate front-end origin needs it.
 - Generic error messages (no stack traces, no SDK or database detail to clients); API docs off in production.
 - Secrets are `SecretStr`, never logged; `.env` is git-ignored. Production start-up warns about missing staff keys,
   unset `ALLOWED_HOSTS`, `HSTS_ENABLED=false` and unconfirmed business rules.
@@ -21,6 +23,12 @@ What exists, what was tested, and what is still missing. Nothing here has been p
 ## HTTPS
 The application does NOT terminate TLS. Serve it behind a reverse proxy. `deploy/Caddyfile.example` is an
 UNTESTED example; HTTPS has not been verified locally. After the proxy works, set `HSTS_ENABLED=true`.
+
+## Observability
+- Every log line carries a request id; each finished ticket logs its agent trace (step names, intent, confidence, escalation
+  reason; never the message text). `GET /staff/metrics` shows in-process counters; `GET /staff/outbox/stats` shows the follow-up
+  queue. `supportx.core.metrics.register_error_hook` forwards unexpected errors to an error tracker (e.g. Sentry) if you add one.
+- Metrics are per process and reset on restart; export them to a real monitoring system for a fleet.
 
 ## Known gaps
 - Customers are identified only by order number + email. Proper verification (one-time code by email/SMS) needs a

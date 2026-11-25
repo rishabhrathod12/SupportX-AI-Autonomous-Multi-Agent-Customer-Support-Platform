@@ -38,14 +38,14 @@ policy passage matches ("never answer from nothing"), an agent still fails after
 
 | Package (`src/supportx/`) | Responsibility | Imports from |
 |---|---|---|
-| `core` | Settings (env vars, validation), logging (request id, text/JSON), exceptions, model-file fingerprint | nothing internal |
+| `core` | Settings (env vars, validation), logging (request id, text/JSON), exceptions, model-file fingerprint, in-process metrics and error hook | nothing internal |
 | `db` | SQLAlchemy models, enums, sessions, repositories (UTC normalization, row locks). Alembic migrations live in `migrations/` at the repo root | `core` |
-| `data` | License-gated dataset download, split preparation, synthetic sample generator, similarity check, hand-written training phrasings (`augment`) | `core`, `nlp` |
+| `data` | Real-customer-data import (redaction, leak-free splits, labeling sheets; `real.py`), license-gated dataset download, split preparation, synthetic sample generator, similarity check, hand-written training phrasings (`augment`) | `core`, `nlp` |
 | `nlp` | Text cleaning and tokenization shared by training and serving (order numbers become the dataset's order-number token) | - |
 | `ml` | Intent classifier (TF-IDF + LogReg or XGBoost), training with MLflow, evaluation, the one-shot test scorer, the probe-set scorer, sentiment classifier + agent (no model trained), triage model pipeline (priority/team/resolution time; no model trained), end-to-end workflow evaluation (`agent_eval`) | `core`, `nlp`, `data`, `services` |
 | `dl` | Keras Embedding + BiLSTM intent model (a documented experiment; not used in serving) | `core`, `nlp`, `data`, `ml` helpers |
 | `llm` | OpenAI client wrapper (timeouts, SDK retries, generic errors, token and cost tracking), `OpenAIEmbedder` (same `Embedder` interface as the lexical one), grounded reply composer (rephrases only order-status and policy answers; falls back to the template). Tested with a fake SDK only; off by default | `core`, `agents` |
-| `rag` | Markdown chunking, local TF-IDF embedder with light stemming, FAISS exact index, retriever (`retrieve_for_answer` picks the best passage plus a close runner-up), retrieval scorer | `core`, `nlp` |
+| `rag` | Markdown chunking, query rewriting thesaurus (`query.py`), local TF-IDF embedder with light stemming, FAISS exact index, retriever (`retrieve_for_answer` picks the best passage plus a close runner-up), retrieval scorer | `core`, `nlp` |
 | `services` | Business rules with no HTTP and no LLM: refund eligibility and workflow, cancellation rule and action, order lookup, audit log, staff keys, rule-based ticket triage | `core`, `db` |
 | `agents` | The graph, the Supervisor rules, `TicketState`, the agent interface (`ports.AgentSet`), real adapters (`adapters.py`), deterministic stubs (`stubs.py`), template replies, `TicketService` and the checkpointer wiring | `core`, `ml`, `rag`, `services`, `db` |
 | `api` | App factory, routers (customer, tickets, staff, health, demo), schemas, dependencies, request-logging and rate-limit middleware | `agents`, `services`, `db`, `core` |

@@ -44,6 +44,8 @@ still starts and the ticket endpoints answer 503.
 | `APP_ENV` | `development` creates tables and serves `/demo`; `production` hides docs and `/demo` and expects migrations |
 | `REFUND_RETURN_WINDOW_DAYS`, `REFUND_NOT_RECEIVED_AFTER_DAYS`, `BUSINESS_RULES_VERSION` | refund rule numbers (DEMO defaults 30 / 14 / `demo-1`); every refund decision records the version |
 | `BUSINESS_RULES_CONFIRMED` | set `true` only after the numbers are your real policy; production start-up logs a warning while it is `false`; `GET /staff/model-info` shows the live rules |
+| `RETRIEVAL_EXPAND_QUERIES` | `true` (default): rewrite everyday phrasings ("send back", "smashed") into policy words before lexical search (E10); `false` = plain search |
+| `TRIAGE_MODELS_DIR`, `TRIAGE_MIN_CONFIDENCE` | optional directory of trained priority/team/resolution models with a hash-checked `manifest.json`; unset = rule-based triage (no model is shipped) |
 | `RETRIEVAL_MIN_SCORE` | best-passage score needed to quote policy text, else a person takes over (default 0.15, chosen 2026-11-25: on the dev questions it answers about 89% of real questions (70% right) and hands over about 33% of unanswerable ones; 0.1 answers everything, 0.2 answers about 70% and hands over about 83%; trade-off in `docs/EXPERIMENTS.md`, E9) |
 | `INTEGRATIONS_MODE`, `OUTBOX_MAX_ATTEMPTS` | `disabled` (default), `mock` (demo adapters) or `live` (refuses to start: no real provider exists); attempts before an event goes `dead` (5) |
 | `OPENAI_API_KEY`, `OPENAI_CHAT_MODEL`, `OPENAI_EMBEDDING_MODEL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`, price settings | OpenAI wrapper (never run against the real API); cost estimates only when you set the prices |
@@ -68,6 +70,7 @@ still starts and the ticket endpoints answer 503.
 | `GET /staff/refunds/pending`, `POST /staff/refunds/{id}/approve` or `/reject` | staff | the same decisions by refund id (reject needs a note) |
 | `GET /staff/model-info` | staff | which intent model file (SHA-256) and settings are serving |
 | `GET /staff/outbox`, `GET /staff/outbox/stats`, `POST /staff/outbox/{id}/retry` | staff | follow-up queue, counts and oldest waiting age for monitoring, requeue a dead event |
+| `GET /staff/metrics` | staff | in-process counters (this process only): tickets by status/escalation reason, retrieval answered/abstained and top score, LLM calls/tokens/cost/errors |
 | `GET /staff/audit?limit=&action=&target_id=` | staff | append-only trail: refund requested/approved/rejected, order cancelled, ticket decided, staff keys created/revoked (newest first) |
 
 ### Payment, stock and customer-message follow-ups (outbox; MOCK adapters only)
@@ -108,7 +111,7 @@ after 14 days from shipping.
 ## Tests and checks
 
 ```powershell
-pytest                       # full suite: 423 passed, 2 skipped (PostgreSQL race tests) at its last full run (3-10 minutes; TensorFlow is slow)
+pytest                       # full suite (see PROJECT_STATUS.md for the last recorded result; the PostgreSQL race tests skip without TEST_POSTGRES_URL)
 ruff check src tests migrations ; ruff format --check src tests migrations
 mypy --strict src
 python -m supportx.ml.probe_eval artifacts/models/intent_tfidf_lr_bitext_aug.joblib --split dev --show-failures
@@ -119,6 +122,15 @@ python -m supportx.ml.agent_eval artifacts/models/intent_tfidf_lr_bitext_aug.job
 
 The holdout probe/retrieval sets and the test split of the datasets were each scored once for the reported numbers;
 do not tune against them (`docs/EXPERIMENTS.md`).
+
+## Real customer data (none exists yet)
+
+`python -m supportx.data.real prepare raw.csv` validates a CSV (format in the module docstring), redacts emails, phone and
+card numbers, deduplicates on normalized words, and assigns train/val/test by a stable hash of the text (no leakage across
+re-imports). A labeling sheet is written for human labelers; a second labeler's disagreements are held out until adjudicated.
+`python -m supportx.ml.real_eval <model> data/real/processed/all.csv --split val` scores a model on real labels only: the report
+says `data_origin: real`, refuses fewer than 100 labeled messages, and the test split is scored once per model. `data/real/` and
+`artifacts/evaluation/` are git-ignored; never commit customer data. Automated redaction does not detect names or addresses.
 
 ## Database migrations and Docker
 
@@ -144,6 +156,7 @@ provider (mock adapters only), so no money moves, no stock changes and no custom
 ## Project layout
 ```
 src/supportx/   core, db, nlp, ml, dl, rag, llm, agents, services, integrations, api
+               (data/real.py = real-data import; ml/real_eval.py = real-data evaluation)
 migrations/     Alembic            scripts/   demo seed
 tests/          unit/              data/      raw/ and processed/ (ignored), sample/ (demo policies, probe sets)
 artifacts/      trained models (ignored)       docs/ docker/ notebooks/

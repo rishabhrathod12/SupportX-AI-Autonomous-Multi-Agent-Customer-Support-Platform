@@ -55,3 +55,7 @@ Thumbs.db
 # Local demo databases
 demo.db
 demo_checkpoints.db*
+
+# Real customer data and its evaluation reports: NEVER commit
+data/real/
+artifacts/evaluation/

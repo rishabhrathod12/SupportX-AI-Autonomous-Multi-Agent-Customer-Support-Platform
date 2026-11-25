@@ -272,3 +272,29 @@ The five example questions today (top passages, baseline): "Can I cancel my orde
 gets "How refunds are approved" (0.19), which says nothing about duration (the documents have no answer) and would be
 handed over at a cutoff of 0.20 or higher. Not built: semantic search; a metadata filter exists (`Retriever.retrieve(sources=...)`)
 but is not wired to the intent. Evidence is 53 + 20 hand-written questions over 3 demo documents: it shows direction, not production quality.
+
+### E10 - Retrieval: query rewriting for paraphrased questions (hand-written questions)
+Run date: 2026-11-25. Questions: `data/sample/retrieval_eval_v3.csv`, 15 `dev` + 15 `holdout`, all answerable paraphrases
+("send something back", "the mug came smashed", "stop an order") written and committed BEFORE any change. Method:
+`supportx.rag.query.expand_query`, a small hand-written thesaurus that APPENDS the policy words ("return", "damaged",
+"cancel", ...) to the question before the lexical search; the original wording is kept. Switch:
+`RETRIEVAL_EXPAND_QUERIES` (serving default on; the library default stays off so E8/E9 reproduce). Cutoff 0.15.
+
+| Set (n answerable) | Variant | Recall@1 | Recall@3 | MRR | Answered AND right |
+|---|---|---|---|---|---|
+| v3 dev (15) | baseline | 0.63 | 0.77 | 0.78 | 0.53 |
+| v3 dev (15) | + thesaurus | 0.87 | 1.00 | 0.96 | 0.93 |
+| v3 HOLDOUT (15), scored once | baseline | 0.60 | 0.73 | 0.72 | 0.47 |
+| v3 HOLDOUT (15), scored once | + thesaurus | 0.90 | 0.93 | 0.95 | 0.87 |
+| older v2+legacy dev (47 + 6 unanswerable) | baseline | 0.70 | 0.90 | 0.82 | 0.70 |
+| older v2+legacy dev (47 + 6 unanswerable) | + thesaurus | 0.72 | 0.95 | 0.85 | 0.75 |
+
+- No regression on the older sets and the false-answer rate for unanswerable questions is unchanged (0.67 at 0.15).
+- The dev thesaurus was extended once after the first dev run ("send it/them/something back"); the holdout figures above
+  were scored BEFORE that addition and were not re-scored.
+- Remaining dev miss: "My order already left the warehouse and I want to stop it" ranks "How to cancel" first (right document,
+  right section second or third; pinned by a test).
+- CAVEATS: one author wrote the questions AND the thesaurus and knew the holdout wording, so treat the holdout as optimistic.
+  n=15, so one question is 6.7 points. The gain only covers phrasings listed in the thesaurus; it is not semantic
+  understanding. Semantic embeddings (OpenAI key or PyTorch) remain the real fix and have NOT been run.
+
